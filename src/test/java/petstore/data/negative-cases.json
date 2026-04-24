@@ -1,0 +1,12 @@
+{
+  "pet": [
+    { "id": 999999901, "desc": "Non-existent pet — large ID never created" },
+    { "id": 999999902, "desc": "Another non-existent pet" }
+  ],
+  "order": [
+    { "id": 999999801, "desc": "Non-existent store order" }
+  ],
+  "user": [
+    { "username": "ghost-user-xyz-karate-404", "desc": "Non-existent username" }
+  ]
+}

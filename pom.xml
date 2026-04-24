@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.petstore.test</groupId>
+    <artifactId>karate-petstore</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Karate Petstore API Tests</name>
+    <description>Enterprise-grade API test framework for the Swagger Petstore using Karate DSL</description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <karate.version>1.4.1</karate.version>
+        <masterthought.version>5.8.1</masterthought.version>
+        <surefire.version>3.2.5</surefire.version>
+        <compiler.version>3.13.0</compiler.version>
+        <!--
+            Override the active environment at build time:
+              mvn test -Dkarate.env=qa
+              mvn test -Dkarate.env=staging
+        -->
+        <karate.env>dev</karate.env>
+    </properties>
+
+    <dependencies>
+
+        <!-- Karate JUnit 5 — bundles karate-core, OkHttp, slf4j, logback -->
+        <dependency>
+            <groupId>com.intuit.karate</groupId>
+            <artifactId>karate-junit5</artifactId>
+            <version>${karate.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Masterthought Cucumber HTML reporting -->
+        <dependency>
+            <groupId>net.masterthought</groupId>
+            <artifactId>cucumber-reporting</artifactId>
+            <version>${masterthought.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <!--
+            Ensure .feature, .json, .csv, .js, and .xml resource files
+            under src/test/java are placed on the test-class-path.
+        -->
+        <testResources>
+            <testResource>
+                <directory>src/test/java</directory>
+                <excludes>
+                    <exclude>**/*.java</exclude>
+                </excludes>
+            </testResource>
+        </testResources>
+
+        <plugins>
+
+            <!--
+                Surefire: single fork — Karate manages its own thread pool
+                via Runner.parallel(N).  The karate.env system property is
+                forwarded from the Maven property set above (or -D override).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <forkCount>1</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <!-- Explicitly include *Runner classes; Surefire defaults miss them -->
+                    <includes>
+                        <include>**/*Runner.java</include>
+                    </includes>
+                    <!-- Exclude tag-specific runners from the default full run;
+                         they are activated via -P<profile> instead -->
+                    <excludes>
+                        <exclude>**/SmokeRunner.java</exclude>
+                        <exclude>**/RegressionRunner.java</exclude>
+                        <exclude>**/MockRunner.java</exclude>
+                    </excludes>
+                    <systemPropertyVariables>
+                        <karate.env>${karate.env}</karate.env>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${compiler.version}</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+    <!--
+    ====================================================================
+    Build profiles
+    ====================================================================
+    Activate a profile to run only the desired subset of tests:
+
+      mvn test -Psmoke          : SmokeRunner   (@smoke scenarios)
+      mvn test -Pregression     : RegressionRunner (@regression)
+      mvn test -Pmock           : MockRunner   (against local mock)
+      mvn test -Pperformance    : MasterRunner with karate.options=@performance
+
+    Combine with environment override:
+      mvn test -Psmoke -Dkarate.env=staging
+    ====================================================================
+    -->
+    <profiles>
+
+        <!-- ── smoke: fast PR-gate (SmokeRunner, 3 threads) ────────────────────── -->
+        <profile>
+            <id>smoke</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire.version}</version>
+                        <configuration>
+                            <includes><include>**/SmokeRunner.java</include></includes>
+                            <excludes><exclude>none</exclude></excludes>
+                            <systemPropertyVariables>
+                                <karate.env>${karate.env}</karate.env>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- ── regression: nightly full suite (RegressionRunner, 5 threads) ────── -->
+        <profile>
+            <id>regression</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire.version}</version>
+                        <configuration>
+                            <includes><include>**/RegressionRunner.java</include></includes>
+                            <excludes><exclude>none</exclude></excludes>
+                            <systemPropertyVariables>
+                                <karate.env>${karate.env}</karate.env>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- ── mock: local mock server tests (no network) ────────────────────── -->
+        <profile>
+            <id>mock</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire.version}</version>
+                        <configuration>
+                            <includes><include>**/MockRunner.java</include></includes>
+                            <excludes><exclude>none</exclude></excludes>
+                            <systemPropertyVariables>
+                                <karate.env>dev</karate.env>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- ── performance: benchmarks only (MasterRunner + @performance tag) ─── -->
+        <profile>
+            <id>performance</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire.version}</version>
+                        <configuration>
+                            <includes><include>**/MasterRunner.java</include></includes>
+                            <excludes><exclude>none</exclude></excludes>
+                            <systemPropertyVariables>
+                                <karate.env>${karate.env}</karate.env>
+                                <karate.options>--tags @performance</karate.options>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
+</project>
