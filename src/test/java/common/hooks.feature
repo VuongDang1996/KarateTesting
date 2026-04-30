@@ -28,9 +28,9 @@ Feature: Lifecycle Hooks — callonce Setup and Teardown Patterns
     * karate.log('[hooks@setup] Active env      :', env)
     * karate.log('[hooks@setup] Base URL        :', baseUrl)
 
-    # karate.info exposes: scenarioName, tags, feature.packageQualifiedName, etc.
-    # When called from callonce the feature path is accessible.
-    * def featurePath = karate.info.feature.packageQualifiedName
+    # karate.info.feature may be undefined when invoked from callonce inside a
+    # Background block (Karate 1.4.x limitation). Guard with a safe JS IIFE fallback.
+    * def featurePath = (function(){ try { return karate.info.feature.packageQualifiedName; } catch(e) { return ''; } })()
 
     * def setup = { startedAt: '#(startedAt)', runId: '#(runId)', env: '#(env)', featurePath: '#(featurePath)' }
 

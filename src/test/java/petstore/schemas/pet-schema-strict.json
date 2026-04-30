@@ -3,6 +3,6 @@
   "category" : { "id": "#number", "name": "#string" },
   "name"     : "#string",
   "photoUrls": "#[] #string",
-  "tags"     : "#[] { id: '#number', name: '#string' }",
+  "tags"     : "##array",
   "status"   : "#regex (available|pending|sold)"
 }

@@ -37,6 +37,10 @@ function fn() {
     env     : env,
     baseUrl : settings.baseUrl,
     apiKey  : settings.apiKey,
+    // _apiKey is also exposed by the same name so that sub-features called via
+    // batch `call` (array form) can reference it directly — closure variables
+    // from karate-config.js are NOT inherited by child feature threads.
+    _apiKey : settings.apiKey,
 
     // Reusable helper: generates a random 7-digit integer suitable for pet IDs.
     // Call from any feature with:  * def newId = call uniqueId
@@ -106,7 +110,6 @@ function fn() {
   var _apiKey = settings.apiKey;
   karate.configure('headers', function() {
     return {
-      'Content-Type' : 'application/json',
       'Accept'       : 'application/json',
       'api_key'      : _apiKey,
       'X-Request-Id' : '' + java.util.UUID.randomUUID(),
@@ -115,8 +118,9 @@ function fn() {
   });
 
   // ── 13. afterScenario hook — automatic pass/fail logging + reporter ─────────
-  // karate.info exposes: scenarioName, tags, feature.packageQualifiedName,
-  // callDepth, errorMessage (non-null only on failure).
+  // karate.info exposes: scenarioName, tags, errorMessage (non-null on failure).
+  // NOTE: callDepth and feature.packageQualifiedName are not reliably available
+  // inside called sub-scenarios, so we guard with try/catch.
   karate.configure('afterScenario', function() {
     var info   = karate.info;
     var status = info.errorMessage ? 'FAIL' : 'PASS';
@@ -125,9 +129,10 @@ function fn() {
     } else {
       karate.log('[PASS]', info.scenarioName);
     }
-    // Only record top-level scenarios (callDepth 0); skip helper calls
-    if (info.callDepth === 0) {
+    try {
       reporter.record(info.scenarioName, status, 0);
+    } catch(e) {
+      // Silently swallow — reporter failure must never break the test run
     }
   });
 

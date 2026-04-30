@@ -27,7 +27,7 @@ Feature: Performance Benchmarking — Statistical Response-Time Analysis
 
     Given path C.paths.STORE_INVENTORY
     When method get
-    Then status C.http.OK
+    Then status 200
 
     * assert responseTime < C.sla.SLOW
     * print '[perf-gate] /store/inventory:', responseTime, 'ms (threshold:', C.sla.SLOW, 'ms)'
@@ -73,14 +73,15 @@ Feature: Performance Benchmarking — Statistical Response-Time Analysis
     * print '[perf] └─────────────────────────────────┘'
 
     # ── Assert SLA thresholds ─────────────────────────────────────────────────
-    * assert mean < C.perf.MEAN_THRESHOLD, 'Mean latency exceeded SLA: ' + mean + ' ms'
-    * assert p95  < C.perf.P95_THRESHOLD,  'P95  latency exceeded SLA: ' + p95  + ' ms'
-    * assert p99  < C.perf.P99_THRESHOLD,  'P99  latency exceeded SLA: ' + p99  + ' ms'
+    * assert mean < C.perf.MEAN_THRESHOLD
+    * assert p95  < C.perf.P95_THRESHOLD
+    * assert p99  < C.perf.P99_THRESHOLD
 
     # ── Build HTML performance table for Masterthought report ─────────────────
     * def pass = '<span style="color:green;font-weight:bold">✓ PASS</span>'
     * def fail = '<span style="color:red;font-weight:bold">✗ FAIL</span>'
-    * def html =
+    # Use `text` keyword to prevent Karate from parsing the HTML block as XML
+    * text html =
       """
       <style>
         .perf-tbl { border-collapse: collapse; font-family: monospace; font-size: 13px; }
@@ -103,7 +104,7 @@ Feature: Performance Benchmarking — Statistical Response-Time Analysis
 
     # ── Write machine-readable results to target/ ─────────────────────────────
     * def perfResults = { endpoint: '/store/inventory', iterations: N, mean: mean, p50: p50, p95: p95, p99: p99, stddev: stdev, min: minT, max: maxT, thresholds: { mean: C.perf.MEAN_THRESHOLD, p95: C.perf.P95_THRESHOLD, p99: C.perf.P99_THRESHOLD }, passedSla: (mean < C.perf.MEAN_THRESHOLD && p95 < C.perf.P95_THRESHOLD && p99 < C.perf.P99_THRESHOLD), timestamp: helpers.isoNow() }
-    * karate.write(karate.toJson(perfResults, true), 'perf-results.json')
+    * karate.write(karate.toJson(perfResults), 'perf-results.json')
     * print '[perf] Results written → target/perf-results.json'
 
     # ── Verify no orphaned test resources via TestDataManager ─────────────────

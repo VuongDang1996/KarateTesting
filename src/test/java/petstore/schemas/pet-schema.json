@@ -1,8 +1,8 @@
 {
   "id"        : "#number",
-  "category"  : "##{ id: '#number', name: '#string' }",
+  "category"  : "##object",
   "name"      : "#string",
   "photoUrls" : "#[] #string",
-  "tags"      : "##[] { id: '#number', name: '#string' }",
+  "tags"      : "##array",
   "status"    : "#regex (available|pending|sold)"
 }

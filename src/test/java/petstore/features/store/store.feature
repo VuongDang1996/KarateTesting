@@ -147,7 +147,8 @@ Feature: Store API — Advanced Karate Patterns
     * def petIds   = karate.map(response, function(p){ return p.id })
     * def petNames = karate.map(response, function(p){ return p.name })
     And match petIds   == '#[] #number'
-    And match petNames == '#[] #string'
+    # Note: demo Petstore has entries with null names — use ##string (optional)
+    And match petNames == '#[] ##string'
     * print 'Total available pets:', petIds.length
 
     # ── karate.filter: keep only pets whose name is non-empty ─────────────────
@@ -160,11 +161,13 @@ Feature: Store API — Advanced Karate Patterns
     * karate.forEach(response, function(p, i){ if (i < 3) karate.log('[forEach] #' + i, '→ id:', p.id, 'name:', p.name) })
 
     # ── match each: every element in the array must satisfy this shape ────────
-    And match each response contains { id: '#number', name: '#string', status: '#string' }
+    # Note: demo Petstore has entries with null names — use ##string (optional)
+    And match each response contains { id: '#number', name: '##string', status: '#string' }
 
     # ── karate.jsonPath: select all pet names via JSONPath ────────────────────
     * def namesViaPath = karate.jsonPath(response, '$[*].name')
-    And match namesViaPath == '#[] #string'
+    # Note: jsonPath on names includes nulls from demo API — accept ##string
+    And match namesViaPath == '#[] ##string'
 
     # ── All statuses must be 'available' since we filtered by that status ─────
     * def statuses = karate.map(response, function(p){ return p.status })
@@ -185,11 +188,11 @@ Feature: Store API — Advanced Karate Patterns
 
     # ── table keyword: inline data (values are always strings — convert below) ─
     * table petRows
-      | id    | name       | status    |
-      | 30001 | TablePet1  | available |
-      | 30002 | TablePet2  | pending   |
-      | 30003 | TablePet3  | sold      |
-      | 30004 | TablePet4  | available |
+      | id    | name         | status      |
+      | 30001 | 'TablePet1'  | 'available' |
+      | 30002 | 'TablePet2'  | 'pending'   |
+      | 30003 | 'TablePet3'  | 'sold'      |
+      | 30004 | 'TablePet4'  | 'available' |
 
     # ── karate.map: convert id strings to integers before passing to API ──────
     * def toCreate = karate.map(petRows, function(r){ return { petId: parseInt(r.id), name: r.name, status: r.status } })
