@@ -444,5 +444,188 @@ export function extractExercises(readmeText, overviewText) {
         'Practice: Add a role column to the Examples table.'
     );
 
+    add(++id, 'Java Interoperability', 'javascript',
+        '# You can directly instantiate and call Java code from within Karate\n' +
+        '* def MyUtils = Java.type(\'com.example.utils.MyUtils\')\n' +
+        '* def result = MyUtils.generateSignature("payload", "secret")\n' +
+        '* match result == "#string"',
+        'Karate provides seamless Java interoperability using `Java.type()`. This is incredibly useful for custom encryption, database connections, or reusing existing Java utilities.',
+        'Practice: Try changing the Java.type to `java.util.UUID` and call `.randomUUID().toString()`.'
+    );
+
+    add(++id, 'GraphQL Query Execution', 'gherkin',
+        '# Executing a GraphQL query is just a POST request with a specific payload\n' +
+        'Given path \'graphql\'\n' +
+        'And request { query: "{ hero { name appearsIn } }" }\n' +
+        'When method post\n' +
+        'Then status 200\n' +
+        'And match response.data.hero.name == "R2-D2"',
+        'GraphQL APIs can be tested effortlessly in Karate. The payload is simply a JSON object containing a `query` string (and optional `variables`).',
+        'Practice: Modify the query to also request the hero\'s `id`.'
+    );
+
+    add(++id, 'Polling / Retry until Condition Met', 'gherkin',
+        '# Karate can poll an endpoint until a specific assertion passes\n' +
+        '* configure retry = { count: 5, interval: 3000 }\n' +
+        '\n' +
+        'Given path \'jobs\', jobId\n' +
+        'And retry until response.status == \'COMPLETED\'\n' +
+        'When method get\n' +
+        'Then status 200',
+        'For asynchronous processes, `retry until <condition>` is a lifesaver. It automatically polls the endpoint, saving you from writing custom looping logic.',
+        'Practice: Change the retry configuration to poll 10 times every 1 second.'
+    );
+
+    add(++id, 'Reading Files and Type Conversion', 'gherkin',
+        '# Read a JSON file and convert it to a string, or parse a string to JSON\n' +
+        '* def myJson = read(\'classpath:data/payload.json\')\n' +
+        '* def jsonString = karate.toString(myJson)\n' +
+        '\n' +
+        '* def rawText = \'{"key":"value"}\'\n' +
+        '* def parsedJson = karate.fromString(rawText)\n' +
+        '* match parsedJson.key == "value"',
+        'Karate\'s `read()` automatically detects file types (JSON, XML, YAML, JS, CSV, TXT). You can convert back and forth between strings and JSON using `karate.toString()` and `karate.fromString()`.',
+        'Practice: Add a `karate.typeOf(parsedJson)` check to assert it is a map/object.'
+    );
+
+    add(++id, 'Reusing Features with `call` vs `callonce`', 'gherkin',
+        '# `call` executes the target feature file every time it is invoked\n' +
+        '* def login1 = call read(\'login.feature\') { user: \'admin\' }\n' +
+        '\n' +
+        '# `callonce` executes it ONLY ONCE, caching the result for all subsequent calls in the same feature\n' +
+        '* def token1 = callonce read(\'get-token.feature\')\n' +
+        '* def token2 = callonce read(\'get-token.feature\')\n' +
+        '# token2 uses the cached result from token1',
+        '`callonce` is crucial for performance (e.g., getting an auth token once per feature file instead of once per scenario). Note: `callonce` cache is per-feature, not global.',
+        'Practice: Try writing a scenario that uses `call` inside a loop to create multiple records.'
+    );
+
+    // --- BASIC LEVEL EXERCISES ---
+    add(++id, 'Basic GET Request', 'gherkin',
+        '# A simple GET request to an endpoint and verifying the HTTP status code\n' +
+        'Given url \'https://petstore.swagger.io/v2/pet/1\'\n' +
+        'When method get\n' +
+        'Then status 200',
+        'This is the simplest Karate test. It hits an endpoint and verifies that it returns a 200 OK status. Notice we use `url` here for the full path.',
+        'Practice: Change the status code to 404 to see how an assertion failure looks.'
+    );
+
+    add(++id, 'Defining and Using Variables', 'gherkin',
+        '# Use the `def` keyword to create variables\n' +
+        '* def myName = \'Karate Kid\'\n' +
+        '* def myAge = 25\n' +
+        '* def myPet = { name: \'Doggo\', type: \'Dog\' }\n' +
+        '\n' +
+        '# Variables can be printed or used in assertions\n' +
+        '* print \'My name is\', myName\n' +
+        '* match myPet.name == \'Doggo\'\n' +
+        '* match myAge == 25',
+        'Variables in Karate are dynamically typed and can hold primitives, JSON objects, or even XML. They are defined using the `def` keyword.',
+        'Practice: Create a variable `colors` that holds an array of strings, then assert its first element.'
+    );
+
+    add(++id, 'Sending a POST Request', 'gherkin',
+        '# Sending data in the request body\n' +
+        'Given url \'https://petstore.swagger.io/v2/store/order\'\n' +
+        'And request { "petId": 123, "quantity": 1, "status": "placed", "complete": true }\n' +
+        'When method post\n' +
+        'Then status 200\n' +
+        'And match response.status == \'placed\'',
+        'To send a payload with POST, PUT, or PATCH, use the `request` keyword. Karate automatically sets the `Content-Type` to `application/json` when passing a JSON object.',
+        'Practice: Add a header to the request using `And header Authorization = \'Bearer token\'` before the `When` step.'
+    );
+
+    add(++id, 'Safe Path and Param Construction', 'gherkin',
+        '# Avoid string concatenation like url \'http://api.com/pet?status=\' + status\n' +
+        'Given url \'https://petstore.swagger.io/v2\'\n' +
+        'And path \'pet\', \'findByStatus\'\n' +
+        'And param status = \'available\'\n' +
+        'When method get\n' +
+        'Then status 200',
+        'Using `path` and `param` ensures that your URLs are correctly URL-encoded and slashed. `path` takes comma-separated segments.',
+        'Practice: Add another parameter `tags = \'friendly\'` to the request.'
+    );
+
+    add(++id, 'Validating JSON Arrays', 'gherkin',
+        '# Using matchers on arrays\n' +
+        '* def response = [ { id: 1, name: "Cat" }, { id: 2, name: "Dog" } ]\n' +
+        '\n' +
+        '# Asserting array size\n' +
+        '* match response == \'#[2]\'\n' +
+        '\n' +
+        '# Validating the exact contents\n' +
+        '* match response[0].name == "Cat"\n' +
+        '\n' +
+        '# Using wildcard [*] to assert every element has an id\n' +
+        '* match response[*].id == \'#[2]\'',
+        'Karate\'s `#[size]` macro allows you to assert the size of an array. The `[*]` wildcard lets you pluck properties from every object in an array.',
+        'Practice: Use a fuzzy matcher to assert that every element in the array has an `id` that is a `#number`.'
+    );
+
+    // --- ADVANCED LEVEL EXERCISES ---
+    add(++id, 'Array Contains and Contains Only', 'gherkin',
+        '# Checking if arrays contain specific elements\n' +
+        '* def colors = [\'red\', \'green\', \'blue\']\n' +
+        '\n' +
+        '# The array contains these elements (order does not matter)\n' +
+        '* match colors contains [\'blue\', \'red\']\n' +
+        '\n' +
+        '# The array contains EXACTLY these elements and no others (order does not matter)\n' +
+        '* match colors contains only [\'blue\', \'green\', \'red\']',
+        'The `contains` keyword is powerful for array validation when you do not care about the order of elements or when the array might contain extra elements you wish to ignore.',
+        'Practice: Define an array of objects and use `contains` to check if a specific object exists within it.'
+    );
+
+    add(++id, 'Response Time Assertion', 'gherkin',
+        '# Performance gating in functional tests\n' +
+        'Given url \'https://petstore.swagger.io/v2/store/inventory\'\n' +
+        'When method get\n' +
+        'Then status 200\n' +
+        '\n' +
+        '# Assert that the API responds in under 1500 milliseconds\n' +
+        '* assert responseTime < 1500',
+        'The built-in `responseTime` variable holds the duration of the HTTP call in milliseconds. `assert` allows evaluating any JavaScript expression returning a boolean.',
+        'Practice: Write an `assert` statement that verifies `response.length == undefined` (since it is an object, not an array).'
+    );
+
+    add(++id, 'Multi-line Strings and XML', 'gherkin',
+        '# Using triple quotes for multi-line JSON or XML\n' +
+        '* def myXml = \n' +
+        '  """\n' +
+        '  <book>\n' +
+        '    <title>The Matrix</title>\n' +
+        '    <price>19.99</price>\n' +
+        '  </book>\n' +
+        '  """\n' +
+        '# Karate automatically parses XML\n' +
+        '* match myXml/book/title == \'The Matrix\'\n' +
+        '* match myXml.book.price == \'19.99\'',
+        'Karate natively parses both JSON and XML defined inside triple quotes `"""`. You can use XPath-like syntax (`/book/title`) or JSON-path (`book.title`) to traverse XML!',
+        'Practice: Create a multi-line JSON object using triple quotes and assert one of its fields.'
+    );
+
+    add(++id, 'Early Exit with karate.abort()', 'gherkin',
+        '# Stop test execution without failing if a condition is met\n' +
+        '* def env = karate.env\n' +
+        '* eval if (env == \'prod\') karate.abort()\n' +
+        '\n' +
+        '* print \'This step will NOT run if environment is prod\'\n' +
+        '* match 1 == 1',
+        '`karate.abort()` stops the execution of the current scenario immediately, but marks it as PASSED (or skipped). It is useful for test data setup steps that should abort safely if data already exists.',
+        'Practice: Write an `eval if` statement that aborts if `responseStatus == 404`.'
+    );
+
+    add(++id, 'Schema Validation with Map/Filter Arrays', 'gherkin',
+        '# Complex schema validation inside an array\n' +
+        '* def response = { pets: [{id: 1, name: "A"}, {id: 2, name: "B"}] }\n' +
+        '\n' +
+        '# Define the schema for a single pet\n' +
+        '* def petSchema = { id: \'#number\', name: \'#string\' }\n' +
+        '\n' +
+        '# Validate that every element in the array matches the schema\n' +
+        '* match each response.pets == petSchema',
+        'The `match each` syntax is a lifesaver when an API returns an array of hundreds of objects. It iterates through the array and ensures every single element adheres to your schema.',
+        'Practice: Add a `#notnull` constraint to the schema and verify it.'
+    );
+
     return ex;
-}
