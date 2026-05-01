@@ -35,7 +35,8 @@
                 <h1><span>Karate</span> Learning Lab</h1>
             </div>
             <div class="header-meta">
-                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#x1F319;</button>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"
+                    aria-label="Toggle dark mode">&#x1F319;</button>
                 <span class="header-badge">&#x26A1; API Testing Framework</span>
                 <span class="header-status">
                     <span class="dot" id="statusDot"></span>
@@ -94,32 +95,45 @@
 
         <!-- ── Interactive Learning Tab ── -->
         <section class="doc-content" id="doc-learn">
-            
+
             <!-- Learning Progress Dashboard -->
             <div class="progress-dashboard">
                 <div class="dashboard-header">
                     <h3 style="margin:0;font-size:1.1rem;">&#x1F3C6; Your Progress</h3>
                     <div class="dashboard-actions">
-                        <button class="ex-btn ex-btn-secondary" style="padding:4px 10px;font-size:0.75rem;" onclick="exportProgress()">&#x1F4BE; Backup</button>
-                        <button class="ex-btn ex-btn-secondary" style="padding:4px 10px;font-size:0.75rem;" onclick="document.getElementById('importFile').click()">&#x1F4E5; Restore</button>
-                        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importProgress(event)">
+                        <button class="ex-btn ex-btn-secondary" style="padding:4px 10px;font-size:0.75rem;"
+                            onclick="exportProgress()">&#x1F4BE; Backup</button>
+                        <button class="ex-btn ex-btn-secondary" style="padding:4px 10px;font-size:0.75rem;"
+                            onclick="document.getElementById('importFile').click()">&#x1F4E5; Restore</button>
+                        <input type="file" id="importFile" style="display:none" accept=".json"
+                            onchange="importProgress(event)">
                     </div>
                 </div>
                 <div class="dashboard-stats">
                     <div class="stat-card">
                         <div class="stat-label">&#x1F3B4; Flashcards Mastered</div>
                         <div class="stat-value" id="stat-flashcards">0%</div>
-                        <div class="stat-bar"><div class="stat-fill" id="bar-flashcards" style="width:0%"></div></div>
+                        <div class="stat-bar">
+                            <div class="stat-fill" id="bar-flashcards" style="width:0%"></div>
+                        </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-label">&#x1F4DD; Avg Quiz Score</div>
                         <div class="stat-value" id="stat-quiz">0%</div>
-                        <div class="stat-bar"><div class="stat-fill" id="bar-quiz" style="width:0%"></div></div>
+                        <div class="stat-bar">
+                            <div class="stat-fill" id="bar-quiz" style="width:0%"></div>
+                        </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">&#x1F4BB; Exercises Attempted</div>
+                        <div class="stat-label">&#x1F4BB; Exercises Solved</div>
                         <div class="stat-value" id="stat-exercises">0 / 0</div>
-                        <div class="stat-bar"><div class="stat-fill" id="bar-exercises" style="width:0%"></div></div>
+                        <div class="stat-bar">
+                            <div class="stat-fill" id="bar-exercises" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">&#x1F3AF; Difficulty Breakdown</div>
+                        <div class="stat-value" id="stat-ex-diff" style="font-size:0.85rem;line-height:1.8"></div>
                     </div>
                 </div>
             </div>
@@ -143,7 +157,8 @@
             <div class="search-filter-container">
                 <div class="search-bar">
                     <span class="search-icon">&#x1F50D;</span>
-                    <input type="text" id="globalSearch" placeholder="Search across all learning materials..." onkeyup="handleSearch()">
+                    <input type="text" id="globalSearch" placeholder="Search across all learning materials..."
+                        onkeyup="handleSearch()">
                 </div>
                 <div class="filter-chips" id="filterChips">
                     <!-- Chips will be generated dynamically based on active mode -->

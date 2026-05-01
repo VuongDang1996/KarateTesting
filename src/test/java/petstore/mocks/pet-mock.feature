@@ -28,12 +28,14 @@ Feature: Petstore Mock Server — Stateful In-Memory CRUD
   # POST /v2/pet — Create
   # ─────────────────────────────────────────────────────────────────────────────
   Scenario: pathMatches('/v2/pet') && methodIs('post')
-    * def newId   = request.id > 0 ? request.id : seq.next++
+    * def newId    = request.id > 0 ? request.id : seq.next++
+    * def defCat   = { id: 0, name: 'Uncategorised' }
+    * def category = request.category || defCat
     * def newPet  =
       """
       {
         "id"        : #(newId),
-        "category"  : #(request.category || { id: 0, name: 'Uncategorised' }),
+        "category"  : #(category),
         "name"      : "#(request.name)",
         "photoUrls" : #(request.photoUrls || []),
         "tags"      : #(request.tags || []),
@@ -95,8 +97,47 @@ Feature: Petstore Mock Server — Stateful In-Memory CRUD
     * def responseStatus = 200
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # POST /v2/store/order — Create order
+  # ─────────────────────────────────────────────────────────────────────────────
+  Scenario: pathMatches('/v2/store/order') && methodIs('post')
+    * def orderId = request.id > 0 ? request.id : seq.next++
+    * def newOrder =
+      """
+      {
+        "id": #(orderId),
+        "petId": #(request.petId || 0),
+        "quantity": #(request.quantity || 1),
+        "shipDate": "#(request.shipDate || '2026-05-01T00:00:00.000+0000')",
+        "status": "placed",
+        "complete": false
+      }
+      """
+    * eval db['order_' + orderId] = newOrder
+    * def response = newOrder
+    * def responseStatus = 200
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GET /v2/store/order/{id} — Read order
+  # ─────────────────────────────────────────────────────────────────────────────
+  Scenario: pathMatches('/v2/store/order/{id}') && methodIs('get')
+    * def found = db['order_' + pathParams.id]
+    * def response = found ? found : { type: 'error', message: 'Order not found' }
+    * def responseStatus = found ? 200 : 404
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # DELETE /v2/store/order/{id} — Delete order
+  # ─────────────────────────────────────────────────────────────────────────────
+  Scenario: pathMatches('/v2/store/order/{id}') && methodIs('delete')
+    * def orderKey = 'order_' + pathParams.id
+    * def existed = db[orderKey] != null
+    * eval if (existed) delete db[orderKey]
+    * def response = existed ? { code: 200, type: 'unknown', message: pathParams.id } : { type: 'error', message: 'Order not found' }
+    * def responseStatus = existed ? 200 : 404
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Catch-all — 404 for any unmatched route
   # ─────────────────────────────────────────────────────────────────────────────
   Scenario:
-    * def response       = { type: 'error', message: 'Route not found: ' + requestUri }
+    * def msg = 'Route not found: ' + requestUri
+    * def response       = { type: 'error', message: '#(msg)' }
     * def responseStatus = 404

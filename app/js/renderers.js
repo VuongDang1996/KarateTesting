@@ -8,25 +8,25 @@ export function renderFlashcards(cards) {
         counter.textContent = '0 cards';
         return;
     }
-    
+
     // Load SR data
     var srData = Storage.get('flashcard_sr', {});
-    
-    cards.forEach(function(c, i) {
+
+    cards.forEach(function (c, i) {
         c.id = 'fc_' + c.question.replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
         c.mastery = srData[c.id] || 0;
     });
-    
-    cards.sort(function(a, b) {
+
+    cards.sort(function (a, b) {
         return a.mastery - b.mastery;
     });
-    
+
     counter.textContent = cards.length + ' cards';
     grid.innerHTML = cards.map(function (c, i) {
         var catClass = 'cat-' + (c.category || 'concept');
         var masteryStars = '&#x2B50;'.repeat(c.mastery) + '&#x2606;'.repeat(3 - c.mastery);
         var icon = c.category === 'gotcha' ? '&#x26A0;&#xFE0F;' : c.category === 'api' ? '&#x1F517;' : c.category === 'config' ? '&#x2699;&#xFE0F;' : '&#x1F9E0;';
-        
+
         return '<div class="flashcard" id="' + c.id + '" data-mastery="' + c.mastery + '" onclick="this.classList.toggle(\'flipped\')">' +
             '<div class="flashcard-inner">' +
             '<div class="flashcard-front">' +
@@ -41,11 +41,11 @@ export function renderFlashcards(cards) {
             '<div class="flash-a">' + c.answer + '</div>' +
             '<div class="flash-source">&#x1F4CE; ' + c.source + '</div>' +
             '<div class="sr-buttons" onclick="event.stopPropagation()">' +
-                '<div style="font-size:0.7rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">How well did you know this?</div>' +
-                '<button class="sr-btn sr-again" onclick="markFlashcard(\'' + c.id + '\', 0)">Again</button>' +
-                '<button class="sr-btn sr-hard" onclick="markFlashcard(\'' + c.id + '\', 1)">Hard</button>' +
-                '<button class="sr-btn sr-good" onclick="markFlashcard(\'' + c.id + '\', 2)">Good</button>' +
-                '<button class="sr-btn sr-easy" onclick="markFlashcard(\'' + c.id + '\', 3)">Easy</button>' +
+            '<div style="font-size:0.7rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">How well did you know this?</div>' +
+            '<button class="sr-btn sr-again" onclick="markFlashcard(\'' + c.id + '\', 0)">Again</button>' +
+            '<button class="sr-btn sr-hard" onclick="markFlashcard(\'' + c.id + '\', 1)">Hard</button>' +
+            '<button class="sr-btn sr-good" onclick="markFlashcard(\'' + c.id + '\', 2)">Good</button>' +
+            '<button class="sr-btn sr-easy" onclick="markFlashcard(\'' + c.id + '\', 3)">Easy</button>' +
             '</div>' +
             '</div>' +
             '</div>' +
@@ -57,16 +57,16 @@ export function markFlashcard(id, level) {
     var srData = Storage.get('flashcard_sr', {});
     srData[id] = level;
     Storage.set('flashcard_sr', srData);
-    
+
     var card = document.getElementById(id);
     if (card) {
         card.setAttribute('data-mastery', level);
         var masteryStars = '&#x2B50;'.repeat(level) + '&#x2606;'.repeat(3 - level);
         card.querySelector('.flash-mastery').innerHTML = masteryStars;
         card.classList.remove('flipped');
-        
+
         card.style.opacity = '0.5';
-        setTimeout(function() { card.style.opacity = '1'; }, 300);
+        setTimeout(function () { card.style.opacity = '1'; }, 300);
     }
     if (window.updateDashboard) window.updateDashboard();
 }
@@ -148,12 +148,23 @@ export function resetQuiz() {
     updateQuizScore();
 }
 
+// ─── CODING EXERCISES ──────────────────────────────────────────────
+
+var difficultyOrder = { basic: 0, intermediate: 1, advanced: 2 };
+var difficultyLabels = { basic: 'Basic', intermediate: 'Intermediate', advanced: 'Advanced' };
+var difficultyIcons = { basic: '🟢', intermediate: '🟡', advanced: '🔴' };
+var diffColors = { basic: 'var(--green)', intermediate: 'var(--amber)', advanced: 'var(--red)' };
+
 export function renderExercises(exercises) {
     var list = document.getElementById('exercise-list');
     if (!exercises.length) {
         list.innerHTML = '<div class="loading"><p>No exercises generated.</p></div>';
         return;
     }
+
+    // Load bookmarks
+    var bookmarks = Storage.get('exercise_bookmarks', []);
+    if (!Array.isArray(bookmarks)) bookmarks = [];
 
     function prismLang(lang) {
         var map = {
@@ -163,82 +174,246 @@ export function renderExercises(exercises) {
         return map[lang] || 'markdown';
     }
 
-    list.innerHTML = exercises.map(function (ex, i) {
+    // Sort exercises by difficulty order, then by ID
+    var sorted = exercises.slice().sort(function (a, b) {
+        var da = difficultyOrder[a.difficulty] !== undefined ? difficultyOrder[a.difficulty] : 1;
+        var db = difficultyOrder[b.difficulty] !== undefined ? difficultyOrder[b.difficulty] : 1;
+        if (da !== db) return da - db;
+        return a.id - b.id;
+    });
+
+    // Load status tracking
+    var statusData = Storage.get('exercise_status', {});
+
+    // Compute per-difficulty stats for summary strip
+    var diffStats = {};
+    sorted.forEach(function (ex) {
+        var d = ex.difficulty || 'intermediate';
+        if (!diffStats[d]) diffStats[d] = { total: 0, solved: 0 };
+        diffStats[d].total++;
+        if (statusData[ex.id] === 'solved') diffStats[d].solved++;
+    });
+    var totalSolved = Object.values(diffStats).reduce(function (s, ds) { return s + ds.solved; }, 0);
+    var totalAll = sorted.length;
+    var overallPct = totalAll > 0 ? Math.round((totalSolved / totalAll) * 100) : 0;
+
+    // Build the summary progress strip
+    var summaryBars = Object.keys(diffStats).map(function (d) {
+        var ds = diffStats[d];
+        var pct = ds.total > 0 ? Math.round((ds.solved / ds.total) * 100) : 0;
+        var color = diffColors[d] || 'var(--accent)';
+        var icon = difficultyIcons[d] || '⚪';
+        return '<div class="ex-summary-item" style="--diff-color: ' + color + '">' +
+            '<span class="ex-summary-icon">' + icon + '</span>' +
+            '<span class="ex-summary-label">' + (difficultyLabels[d] || d) + '</span>' +
+            '<span class="ex-summary-count">' + ds.solved + '/' + ds.total + '</span>' +
+            '<div class="ex-summary-bar"><div class="ex-summary-fill" style="width:' + pct + '%"></div></div>' +
+            '</div>';
+    }).join('');
+
+    var html = '<div class="ex-summary-strip">' +
+        '<div class="ex-summary-header">' +
+        '<span class="ex-summary-title">&#x1F3C6; Progress</span>' +
+        '<span class="ex-summary-overall">' + totalSolved + ' / ' + totalAll + ' solved</span>' +
+        '</div>' +
+        '<div class="ex-summary-bars">' + summaryBars + '</div>' +
+        '<div class="ex-summary-progress">' +
+        '<div class="ex-summary-progress-track">' +
+        '<div class="ex-summary-progress-fill" style="width:' + overallPct + '%"></div>' +
+        '</div>' +
+        '<span class="ex-summary-percent">' + overallPct + '%</span>' +
+        '</div>' +
+        '</div>' +
+
+        // B7: Quick-nav jump list
+        '<div class="ex-quick-nav" id="exQuickNav">' +
+        sorted.map(function (ex, qi) {
+            var qs = statusData[ex.id] === 'solved' ? ' qn-solved' : '';
+            return '<button class="ex-qn-btn' + qs + '" onclick="scrollToExercise(' + ex.id + ')" title="' + (difficultyLabels[ex.difficulty] || 'Exercise') + ' #' + (qi + 1) + ': ' + ex.title.replace(/"/g, '"') + '">' + (qi + 1) + '</button>';
+        }).join('') +
+        '</div>';
+
+    // Group by difficulty for section headers
+    var currentDiff = null;
+    var globalIndex = 0;
+
+    sorted.forEach(function (ex, i) {
+        // Section header when difficulty changes
+        if (ex.difficulty !== currentDiff) {
+            currentDiff = ex.difficulty;
+            var diffKey = currentDiff || 'intermediate';
+            var label = difficultyLabels[diffKey] || 'Exercise';
+            var icon = difficultyIcons[diffKey] || '⚪';
+            var ds = diffStats[diffKey] || { total: 0, solved: 0 };
+            html += '<div class="ex-section" data-diff="' + diffKey + '">' +
+                '<div class="ex-section-header" onclick="toggleSection(this)" data-collapsed="false">' +
+                '<span class="ex-section-icon">' + icon + '</span>' +
+                '<span class="ex-section-title">' + label + '</span>' +
+                '<span class="ex-section-progress">' + ds.solved + '/' + ds.total + '</span>' +
+                '<div class="ex-section-bar"><div class="ex-section-bar-fill" style="width:' + (ds.total > 0 ? Math.round((ds.solved / ds.total) * 100) : 0) + '%;background:' + (diffColors[diffKey] || 'var(--accent)') + '"></div></div>' +
+                '<span class="ex-section-toggle">&#x2212;</span>' +
+                '</div>' +
+                '<div class="ex-section-body">' +
+                '</div>' +
+                '</div>';
+        }
+
+        globalIndex++;
         var safeCode = ex.code
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
+            .replace(/"/g, '"');
         var lang = prismLang(ex.lang);
-        
-        // Load saved code if it exists
+
+        // Load saved code
         var savedCode = Storage.get('exercise_' + ex.id, null);
-        var initialCode = savedCode !== null ? savedCode : (ex.setup || '');
-        
-        return '<div class="exercise-card" data-ex="' + ex.id + '">' +
+        var hasSavedCode = savedCode !== null;
+        var initialCode = hasSavedCode ? savedCode : (ex.setup || '');
+
+        // Status
+        var status = statusData[ex.id] || (hasSavedCode ? 'in_progress' : 'not_started');
+        var statusLabel = status === 'solved' ? 'Solved' : status === 'in_progress' ? 'In Progress' : 'Not Started';
+        var statusClass = 'ex-status-' + status;
+
+        // Difficulty class for card border
+        var diffBorderClass = 'ex-card-' + (ex.difficulty || 'intermediate');
+
+        // Hints
+        var hints = ex.hints || [];
+        var hintCount = hints.length;
+
+        // Build line-numbered code
+        var codeLines = safeCode.split('\n');
+        var numberedCode = codeLines.map(function (line, lineIdx) {
+            return '<span class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + line + '</span></span>';
+        }).join('');
+
+        html += '<div class="exercise-card ' + diffBorderClass + '" data-ex="' + ex.id + '" data-diff="' + (ex.difficulty || 'intermediate') + '" style="--card-index: ' + (globalIndex - 1) + '">' +
             '<div class="exercise-card-header">' +
             '<div>' +
-            '<div class="ex-num">Exercise #' + (i + 1) + '</div>' +
+            '<div class="ex-num">' +
+            '<span class="ex-diff-badge ' + ('ex-diff-' + (ex.difficulty || 'intermediate')) + '" title="' + (ex.difficulty === 'basic' ? 'Foundational level — no prior experience needed' : ex.difficulty === 'advanced' ? 'Challenging level — multi-step concepts and edge cases' : 'Standard level — common real-world patterns') + '">' + (ex.difficulty === 'basic' ? '🟢' : ex.difficulty === 'advanced' ? '🔴' : '🟡') + ' ' + (difficultyLabels[ex.difficulty] || 'Intermediate') + '</span>' +
+            ' Exercise #' + (globalIndex) +
+            '</div>' +
             '<div class="ex-title">' + ex.title + '</div>' +
             '</div>' +
-            '<div class="ex-lang">' + ex.lang + '</div>' +
+            '<div class="ex-header-right">' +
+            '<span class="ex-status ' + statusClass + '">' +
+            (status === 'solved' ? '&#x2705;' : status === 'in_progress' ? '&#x1F4DD;' : '&#x25CB;') + ' ' + statusLabel +
+            '</span>' +
+            '<span class="ex-lang">' + ex.lang + '</span>' +
+            '<button class="ex-btn-bookmark' + (bookmarks.indexOf(ex.id) !== -1 ? ' bookmarked' : '') + '" onclick="toggleBookmark(this)" data-ex="' + ex.id + '" title="' + (bookmarks.indexOf(ex.id) !== -1 ? 'Remove bookmark' : 'Bookmark for review') + '">' + (bookmarks.indexOf(ex.id) !== -1 ? '&#x2B50;' : '&#x2606;') + '</button>' +
+            '</div>' +
             '</div>' +
             '<div class="exercise-body">' +
-            '<p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:16px">' +
-            ex.description + '</p>' +
+            '<p class="ex-desc">' + ex.description + '</p>' +
 
+            // Action buttons
             '<div class="exercise-actions">' +
             '<button class="ex-btn ex-btn-primary" onclick="revealSolution(this)">&#x1F50D; Reveal Solution</button>' +
             '<button class="ex-btn ex-btn-secondary" onclick="toggleEditor(this)">&#x270F;&#xFE0F; Practice Area</button>' +
+            (hintCount > 0 ? '<button class="ex-btn ex-btn-hint" onclick="cycleHint(this)" data-hint-idx="-1" data-hint-count="' + hintCount + '">&#x1F4A1; Show Hint</button>' : '') +
+            '<button class="ex-btn ex-btn-solved" onclick="markExerciseSolved(this)">&#x2705; Mark Solved</button>' +
+            '<button class="ex-btn ex-btn-unsolved" onclick="markExerciseUnsolved(this)" style="display:' + (status === 'solved' ? 'inline-flex' : 'none') + '">&#x21BA; Mark Unsolved</button>' +
             '</div>' +
 
+            // Hint area (hidden until clicked)
+            (hintCount > 0 ? '<div class="ex-hint-area" style="display:none">' +
+                '<div class="ex-hint-label">&#x1F4A1; Hint</div>' +
+                '<div class="ex-hint-text"></div>' +
+                '</div>' : '') +
+
+            // Solution block
             '<div class="ex-solution">' +
-            '<div class="ex-solution-label">&#x2705; Solution</div>' +
-            '<pre><code class="language-' + lang + '">' + safeCode + '</code></pre>' +
+            '<div class="ex-solution-header">' +
+            '<span class="ex-solution-label">&#x2705; Solution</span>' +
+            '<button class="ex-btn ex-btn-copy" onclick="copySolution(this)">&#x1F4CB; Copy</button>' +
+            '</div>' +
+            '<pre class="ex-code-block"><code class="language-' + lang + '">' + numberedCode + '</code></pre>' +
             '</div>' +
 
+            // Practice editor
             '<div class="ex-editor" style="display:none">' +
+            '<div class="ex-editor-toolbar">' +
+            '<span class="ex-editor-label">&#x270F;&#xFE0F; Practice Area</span>' +
+            '<div class="ex-editor-actions">' +
+            '<button class="ex-btn ex-btn-sm ex-btn-secondary" onclick="resetExerciseCode(this)">&#x21BA; Reset</button>' +
+            '<button class="ex-btn ex-btn-sm ex-btn-secondary" onclick="togglePreview(this)">&#x1F441; Preview</button>' +
+            '</div>' +
+            '</div>' +
             '<textarea placeholder="Write your practice code here&#x2026;" spellcheck="false">' + initialCode + '</textarea>' +
-            '<div class="save-status" style="font-size:0.75rem;color:var(--text-muted);text-align:right;margin-top:4px;"></div>' +
+            '<div class="ex-preview" style="display:none"><pre class="ex-code-block"><code class="language-' + lang + '"></code></pre></div>' +
+            '<div class="ex-editor-footer">' +
+            '<span class="save-status"></span>' +
+            '</div>' +
             '</div>' +
 
             '</div>' +
             '</div>';
-    }).join('');
+    });
 
+    list.innerHTML = html;
+
+    // Move cards into their section bodies
+    document.querySelectorAll('.ex-section').forEach(function (section) {
+        var diff = section.getAttribute('data-diff');
+        var body = section.querySelector('.ex-section-body');
+        var cards = document.querySelectorAll('.exercise-card[data-diff="' + diff + '"]');
+        cards.forEach(function (card) {
+            body.appendChild(card);
+        });
+    });
+
+    // Highlight all code blocks
     document.querySelectorAll('#exercise-list pre code').forEach(function (block) {
         if (window.Prism) Prism.highlightElement(block);
     });
 
-    // Attach smart editor listeners to all textareas
-    document.querySelectorAll('#exercise-list textarea').forEach(function(textarea) {
+    // Attach smart editor listeners
+    document.querySelectorAll('#exercise-list .ex-editor textarea').forEach(function (textarea) {
         var card = textarea.closest('.exercise-card');
         var exId = card.getAttribute('data-ex');
-        var statusEl = card.querySelector('.save-status');
-        
-        // Handle Tab key for indentation
-        textarea.addEventListener('keydown', function(e) {
+        var footer = card.querySelector('.ex-editor-footer .save-status');
+
+        // Tab key for indentation
+        textarea.addEventListener('keydown', function (e) {
             if (e.key === 'Tab') {
                 e.preventDefault();
                 var start = this.selectionStart;
                 var end = this.selectionEnd;
-                // set textarea value to: text before caret + tab + text after caret
                 this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
                 this.selectionStart = this.selectionEnd = start + 2;
-                // Trigger input event to auto-save
                 this.dispatchEvent(new Event('input'));
             }
         });
-        
-        // Auto-save on input with debouncing
+
+        // Auto-save with debouncing
         var timeout = null;
-        textarea.addEventListener('input', function() {
-            statusEl.textContent = 'Saving...';
+        textarea.addEventListener('input', function () {
+            if (footer) footer.textContent = 'Saving...';
             var val = this.value;
             clearTimeout(timeout);
-            timeout = setTimeout(function() {
+            timeout = setTimeout(function () {
                 Storage.set('exercise_' + exId, val);
-                statusEl.innerHTML = 'Saved &#x2705;';
+                // Update status to in_progress if not solved
+                var statusData = Storage.get('exercise_status', {});
+                if (statusData[exId] !== 'solved') {
+                    statusData[exId] = 'in_progress';
+                    Storage.set('exercise_status', statusData);
+                    // Update status badge if visible
+                    var statusEl = card.querySelector('.ex-status');
+                    if (statusEl) {
+                        statusEl.className = 'ex-status ex-status-in_progress';
+                        statusEl.innerHTML = '&#x1F4DD; In Progress';
+                    }
+                    // Show Mark Solved, hide Mark Unsolved
+                    var solvedBtn = card.querySelector('.ex-btn-solved');
+                    var unsolvedBtn = card.querySelector('.ex-btn-unsolved');
+                    if (solvedBtn) solvedBtn.style.display = 'inline-flex';
+                    if (unsolvedBtn) unsolvedBtn.style.display = 'none';
+                }
+                if (footer) footer.innerHTML = 'Saved &#x2705;';
                 if (window.updateDashboard) window.updateDashboard();
-                setTimeout(function() { statusEl.textContent = ''; }, 2000);
+                setTimeout(function () { if (footer) footer.textContent = ''; }, 2000);
             }, 500);
         });
     });
@@ -247,12 +422,36 @@ export function renderExercises(exercises) {
 export function revealSolution(btn) {
     var card = btn.closest('.exercise-card');
     var sol = card.querySelector('.ex-solution');
+    var isOpening = !sol.classList.contains('open');
+
+    // Accordion: close other open solutions when opening a new one
+    if (isOpening) {
+        document.querySelectorAll('.ex-solution.open').forEach(function (openSol) {
+            var openCard = openSol.closest('.exercise-card');
+            if (openCard) {
+                openSol.classList.remove('open');
+                var otherBtn = openCard.querySelector('.ex-btn-primary');
+                if (otherBtn) {
+                    otherBtn.innerHTML = '&#x1F50D; Reveal Solution';
+                    otherBtn.classList.remove('revealed');
+                }
+            }
+        });
+    }
+
     sol.classList.toggle('open');
-    btn.innerHTML = sol.classList.contains('open') ? '&#x1F512; Hide Solution' : '&#x1F50D; Reveal Solution';
-    if (sol.classList.contains('open')) {
+    btn.classList.toggle('revealed', isOpening);
+    btn.innerHTML = isOpening ? '&#x1F512; Hide Solution' : '&#x1F50D; Reveal Solution';
+
+    if (isOpening) {
+        // Highlight code via Prism
         sol.querySelectorAll('pre code').forEach(function (b) {
             if (window.Prism) Prism.highlightElement(b);
         });
+        // Auto-scroll to the solution so it's fully visible
+        setTimeout(function () {
+            sol.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 150);
     }
 }
 
@@ -266,4 +465,254 @@ export function toggleEditor(btn) {
         var ta = editor.querySelector('textarea');
         setTimeout(function () { ta.focus(); }, 100);
     }
+}
+
+// ─── MARK SOLVED / UNSOLVED ──────────────────────────────────────
+
+export function markExerciseSolved(btn) {
+    var card = btn.closest('.exercise-card');
+    var exId = card.getAttribute('data-ex');
+    var statusData = Storage.get('exercise_status', {});
+
+    statusData[exId] = 'solved';
+    Storage.set('exercise_status', statusData);
+
+    // Update UI
+    var statusEl = card.querySelector('.ex-status');
+    if (statusEl) {
+        statusEl.className = 'ex-status ex-status-solved';
+        statusEl.innerHTML = '&#x2705; Solved';
+    }
+    btn.style.display = 'none';
+    var unsolvedBtn = card.querySelector('.ex-btn-unsolved');
+    if (unsolvedBtn) unsolvedBtn.style.display = 'inline-flex';
+
+    if (window.updateDashboard) window.updateDashboard();
+}
+
+export function markExerciseUnsolved(btn) {
+    var card = btn.closest('.exercise-card');
+    var exId = card.getAttribute('data-ex');
+    var statusData = Storage.get('exercise_status', {});
+
+    // Check if they have code saved → in_progress, else not_started
+    var hasCode = Storage.get('exercise_' + exId, null) !== null;
+    statusData[exId] = hasCode ? 'in_progress' : 'not_started';
+    Storage.set('exercise_status', statusData);
+
+    // Update UI
+    var statusEl = card.querySelector('.ex-status');
+    if (statusEl) {
+        var newLabel = hasCode ? 'In Progress' : 'Not Started';
+        var newIcon = hasCode ? '&#x1F4DD;' : '&#x25CB;';
+        statusEl.className = 'ex-status ex-status-' + (hasCode ? 'in_progress' : 'not_started');
+        statusEl.innerHTML = newIcon + ' ' + newLabel;
+    }
+    btn.style.display = 'none';
+    var solvedBtn = card.querySelector('.ex-btn-solved');
+    if (solvedBtn) solvedBtn.style.display = 'inline-flex';
+
+    if (window.updateDashboard) window.updateDashboard();
+}
+
+// ─── RESET CODE ──────────────────────────────────────────────────
+
+export function resetExerciseCode(btn) {
+    if (!confirm('Reset your practice code? This will clear your edits.')) return;
+
+    var card = btn.closest('.exercise-card');
+    var exId = card.getAttribute('data-ex');
+    var textarea = card.querySelector('.ex-editor textarea');
+
+    // Find the original exercise to get setup code
+    if (window.AppData && window.AppData.exercises) {
+        var ex = window.AppData.exercises.find(function (e) { return e.id == exId; });
+        if (ex) {
+            textarea.value = ex.setup || '';
+            Storage.set('exercise_' + exId, textarea.value);
+            var footer = card.querySelector('.ex-editor-footer .save-status');
+            if (footer) footer.innerHTML = 'Reset &#x2705;';
+            setTimeout(function () { if (footer) footer.textContent = ''; }, 2000);
+        }
+    }
+}
+
+// ─── COPY SOLUTION ───────────────────────────────────────────────
+
+export function copySolution(btn) {
+    var card = btn.closest('.exercise-card');
+    var codeBlock = card.querySelector('.ex-solution pre code');
+    var text = codeBlock.textContent || codeBlock.innerText;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+            var orig = btn.innerHTML;
+            btn.innerHTML = '&#x2705; Copied!';
+            btn.classList.add('ex-btn-copied');
+            setTimeout(function () {
+                btn.innerHTML = orig;
+                btn.classList.remove('ex-btn-copied');
+            }, 2000);
+        }).catch(function () {
+            fallbackCopy(text, btn);
+        });
+    } else {
+        fallbackCopy(text, btn);
+    }
+}
+
+function fallbackCopy(text, btn) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        var orig = btn.innerHTML;
+        btn.innerHTML = '&#x2705; Copied!';
+        btn.classList.add('ex-btn-copied');
+        setTimeout(function () {
+            btn.innerHTML = orig;
+            btn.classList.remove('ex-btn-copied');
+        }, 2000);
+    } catch (e) { }
+    document.body.removeChild(ta);
+}
+
+// ─── HINT SYSTEM ─────────────────────────────────────────────────
+
+export function cycleHint(btn) {
+    var card = btn.closest('.exercise-card');
+    var exId = card.getAttribute('data-ex');
+    var hintArea = card.querySelector('.ex-hint-area');
+    var hintText = card.querySelector('.ex-hint-text');
+
+    // Get current hint index
+    var idx = parseInt(btn.getAttribute('data-hint-idx'), 10);
+    var count = parseInt(btn.getAttribute('data-hint-count'), 10);
+
+    // Find the exercise
+    if (window.AppData && window.AppData.exercises) {
+        var ex = window.AppData.exercises.find(function (e) { return e.id == exId; });
+        if (ex && ex.hints && ex.hints.length > 0) {
+            var nextIdx = idx + 1;
+            if (nextIdx < ex.hints.length) {
+                // Show this hint
+                hintArea.style.display = 'block';
+                hintText.textContent = ex.hints[nextIdx];
+                btn.setAttribute('data-hint-idx', nextIdx);
+
+                if (nextIdx === ex.hints.length - 1) {
+                    btn.innerHTML = '&#x1F4A1; No more hints';
+                    btn.disabled = true;
+                } else {
+                    btn.innerHTML = '&#x1F4A1; Hint ' + (nextIdx + 1) + '/' + ex.hints.length;
+                }
+            }
+        }
+    }
+}
+
+// ─── SYNTAX PREVIEW TOGGLE ──────────────────────────────────────
+
+export function togglePreview(btn) {
+    var card = btn.closest('.exercise-card');
+    var editor = card.querySelector('.ex-editor');
+    var textarea = editor.querySelector('textarea');
+    var previewArea = editor.querySelector('.ex-preview');
+    var isHidden = previewArea.style.display === 'none' || !previewArea.style.display;
+
+    if (isHidden) {
+        // Render preview
+        var code = textarea.value;
+        var codeBlock = previewArea.querySelector('pre code');
+        var safeCode = code
+            .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
+            .replace(/"/g, '"');
+        // Add line numbers
+        var lines = safeCode.split('\n');
+        var numbered = lines.map(function (line, lineIdx) {
+            return '<span class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + line + '</span></span>';
+        }).join('');
+        codeBlock.innerHTML = numbered;
+
+        previewArea.style.display = 'block';
+        textarea.style.display = 'none';
+        btn.innerHTML = '&#x270F;&#xFE0F; Edit';
+
+        if (window.Prism) Prism.highlightElement(codeBlock);
+
+        // Auto-refresh preview on input
+        textarea._previewActive = true;
+        textarea.addEventListener('input', function _previewUpdater() {
+            if (!textarea._previewActive) {
+                textarea.removeEventListener('input', _previewUpdater);
+                return;
+            }
+            var newCode = textarea.value
+                .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
+                .replace(/"/g, '"');
+            var newLines = newCode.split('\n');
+            var newNumbered = newLines.map(function (line, lineIdx) {
+                return '<span class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + line + '</span></span>';
+            }).join('');
+            codeBlock.innerHTML = newNumbered;
+            if (window.Prism) Prism.highlightElement(codeBlock);
+        });
+    } else {
+        // Switch back to editor
+        previewArea.style.display = 'none';
+        textarea.style.display = '';
+        btn.innerHTML = '&#x1F441; Preview';
+        textarea._previewActive = false;
+    }
+}
+
+// ─── TOGGLE SECTION (COLLAPSE/EXPAND) ──────────────────────────
+
+export function toggleSection(header) {
+    var section = header.closest('.ex-section');
+    var body = section.querySelector('.ex-section-body');
+    var toggle = section.querySelector('.ex-section-toggle');
+    var isCollapsed = header.getAttribute('data-collapsed') === 'true';
+    header.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
+    body.style.display = isCollapsed ? '' : 'none';
+    toggle.innerHTML = isCollapsed ? '&#x2212;' : '&#x2B;';
+}
+
+// ─── BOOKMARK TOGGLE (B8) ─────────────────────────────────────────
+
+export function toggleBookmark(btn) {
+    var exId = parseInt(btn.getAttribute('data-ex'), 10);
+    var bookmarks = Storage.get('exercise_bookmarks', []);
+    if (!Array.isArray(bookmarks)) bookmarks = [];
+
+    var idx = bookmarks.indexOf(exId);
+    if (idx !== -1) {
+        bookmarks.splice(idx, 1);
+        btn.innerHTML = '&#x2606;';
+        btn.classList.remove('bookmarked');
+        btn.setAttribute('title', 'Bookmark for review');
+    } else {
+        bookmarks.push(exId);
+        btn.innerHTML = '&#x2B50;';
+        btn.classList.add('bookmarked');
+        btn.setAttribute('title', 'Remove bookmark');
+    }
+    Storage.set('exercise_bookmarks', bookmarks);
+    if (window.updateDashboard) window.updateDashboard();
+}
+
+// ─── QUICK-NAV SCROLL (B7) ─────────────────────────────────────
+
+export function scrollToExercise(exId) {
+    var card = document.querySelector('.exercise-card[data-ex="' + exId + '"]');
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Update active state in quick-nav
+    document.querySelectorAll('.ex-qn-btn').forEach(function (b) { b.classList.remove('qn-active'); });
+    var qnBtn = document.querySelector('.ex-qn-btn:nth-child(' + (Array.from(document.querySelectorAll('.exercise-card')).indexOf(card) + 1) + ')');
+    if (qnBtn) qnBtn.classList.add('qn-active');
 }

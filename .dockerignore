@@ -1,0 +1,20 @@
+# Build artefacts
+target/
+!.mvn
+
+# Version control
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / app UI (not needed in the test runner image)
+node_modules/
+app/
