@@ -1,7 +1,7 @@
 import { Storage } from './storage.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { extractFlashcards, extractQuiz, extractExercises } from './parser.js';
-import { renderFlashcards, renderQuiz, renderExercises, toggleQuizAnswer, markQuiz, markFlashcard, revealSolution, toggleEditor, markExerciseSolved, markExerciseUnsolved, resetExerciseCode, copySolution, cycleHint, togglePreview, toggleSection, toggleBookmark, scrollToExercise } from './renderers.js';
+import { renderFlashcards, renderQuiz, renderExercises, toggleQuizAnswer, markQuiz, markQuizMCQ, markFlashcard, revealSolution, toggleEditor, markExerciseSolved, markExerciseUnsolved, resetExerciseCode, copySolution, cycleHint, togglePreview, toggleSection, toggleBookmark, scrollToExercise } from './renderers.js';
 import { generateToC } from './toc.js';
 
 export var AppData = { flashcards: [], quizItems: [], exercises: [] };
@@ -423,6 +423,7 @@ window.handleSearch = handleSearch;
 window.setFilter = setFilter;
 window.toggleQuizAnswer = toggleQuizAnswer;
 window.markQuiz = markQuiz;
+window.markQuizMCQ = markQuizMCQ;
 window.markFlashcard = markFlashcard;
 window.revealSolution = revealSolution;
 window.toggleEditor = toggleEditor;

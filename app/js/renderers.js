@@ -77,57 +77,117 @@ export function renderQuiz(items) {
         list.innerHTML = '<div class="loading"><p>No quiz items generated.</p></div>';
         return;
     }
+    
+    // Attach the questions globally so we can access them in markQuizMCQ
+    window.AppData = window.AppData || {};
+    window.AppData.quizItems = items;
+
     list.innerHTML = items.map(function (q) {
-        return '<div class="quiz-item" data-id="' + q.id + '">' +
-            '<div class="quiz-question" onclick="toggleQuizAnswer(this)">' +
+        var codeBlock = '';
+        if (q.code) {
+            var highlighted = q.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (window.Prism && Prism.languages.javascript) {
+                try {
+                    highlighted = Prism.highlight(q.code, Prism.languages.javascript, 'javascript');
+                } catch (e) {}
+            }
+            codeBlock = '<div class="quiz-code"><pre><code class="no-highlight">' + highlighted + '</code></pre></div>';
+        }
+
+        var optionsHtml = q.options.map(function(opt, index) {
+            var safeOpt = opt.replace(/`/g, '<code>').replace(/`/g, '</code>'); // Simple backtick replacement
+            if (safeOpt.split('<code>').length % 2 === 0) {
+               // Fix unclosed ticks
+               safeOpt += '</code>';
+            }
+            return '<button class="quiz-mcq-opt" onclick="markQuizMCQ(this, ' + q.id + ', ' + index + ', ' + q.correctIndex + ')">' + 
+                   '<span class="quiz-mcq-letter">' + String.fromCharCode(65 + index) + '</span>' + 
+                   '<span class="quiz-mcq-text">' + safeOpt + '</span>' +
+                   '</button>';
+        }).join('');
+
+        return '<div class="quiz-item mcq-item" data-id="' + q.id + '">' +
+            '<div class="quiz-question">' +
             '<div class="quiz-q-num">' + q.id + '</div>' +
             '<div class="quiz-q-text">' + q.question + '</div>' +
-            '<button class="quiz-toggle">&#x2B;</button>' +
             '</div>' +
-            '<div class="quiz-answer">' +
+            codeBlock +
+            '<div class="quiz-mcq-options">' + optionsHtml + '</div>' +
+            '<div class="quiz-mcq-feedback" id="quiz-feedback-' + q.id + '" style="display:none;">' +
             '<div class="quiz-answer-inner">' +
-            '<div class="quiz-answer-icon">&#x1F4A1;</div>' +
+            '<div class="quiz-answer-icon" id="quiz-icon-' + q.id + '"></div>' +
             '<div class="quiz-answer-text">' +
-            '<strong>' + q.answer + '</strong>' +
+            '<strong id="quiz-title-' + q.id + '"></strong>' +
+            '<p style="margin-top:8px; line-height: 1.5;">' + q.explanation + '</p>' +
             '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">&#x1F4CE; ' + q.source + '</div>' +
-            '<div class="quiz-mark-btns">' +
-            '<button class="quiz-mark-btn" onclick="event.stopPropagation();markQuiz(this,' + q.id + ',\'correct\')">&#x2705; I knew this</button>' +
-            '<button class="quiz-mark-btn" onclick="event.stopPropagation();markQuiz(this,' + q.id + ',\'wrong\')">&#x274C; Got it wrong</button>' +
-            '</div>' +
             '</div>' +
             '</div>' +
             '</div>' +
             '</div>';
     }).join('');
+    
     updateQuizScore(items);
 }
 
 export var quizState = { correct: 0, wrong: 0 };
 
-export function toggleQuizAnswer(el) {
-    var item = el.closest('.quiz-item');
-    item.classList.toggle('open');
-    var toggle = item.querySelector('.quiz-toggle');
-    toggle.innerHTML = item.classList.contains('open') ? '&#x2212;' : '&#x2B;';
-}
-
-export function markQuiz(btn, id, result) {
+export function markQuizMCQ(btn, qId, selectedIndex, correctIndex) {
     var item = btn.closest('.quiz-item');
-    var btns = item.querySelectorAll('.quiz-mark-btn');
-    btns.forEach(function (b) { b.className = 'quiz-mark-btn'; });
-    if (result === 'correct') {
-        btn.classList.add('marked-correct');
+    if (item.classList.contains('answered')) return; // Prevent multiple answers
+    
+    item.classList.add('answered');
+    var isCorrect = (selectedIndex === correctIndex);
+    
+    // Disable all buttons in this question
+    var buttons = item.querySelectorAll('.quiz-mcq-opt');
+    buttons.forEach(function(b, idx) {
+        b.disabled = true;
+        if (idx === correctIndex) {
+            b.classList.add('mcq-correct');
+        } else if (idx === selectedIndex && !isCorrect) {
+            b.classList.add('mcq-wrong');
+        }
+    });
+
+    // Update global state
+    if (isCorrect) {
         quizState.correct++;
     } else {
-        btn.classList.add('marked-wrong');
         quizState.wrong++;
     }
-    btn.disabled = true;
+    
+    // Show feedback
+    var feedbackBox = document.getElementById('quiz-feedback-' + qId);
+    var iconBox = document.getElementById('quiz-icon-' + qId);
+    var titleBox = document.getElementById('quiz-title-' + qId);
+    
+    feedbackBox.style.display = 'block';
+    if (isCorrect) {
+        feedbackBox.classList.add('feedback-correct');
+        iconBox.innerHTML = '&#x2705;'; // Check
+        titleBox.innerHTML = 'Correct!';
+        titleBox.style.color = 'var(--green)';
+    } else {
+        feedbackBox.classList.add('feedback-wrong');
+        iconBox.innerHTML = '&#x274C;'; // Cross
+        titleBox.innerHTML = 'Incorrect';
+        titleBox.style.color = 'var(--red)';
+    }
+    
     updateQuizScore();
     if (window.updateDashboard) window.updateDashboard();
 }
 
-function updateQuizScore(items) {
+// Keep the old markQuiz around just in case, though it won't be used
+export function markQuiz(btn, id, result) {
+    // Deprecated for MCQ
+}
+
+export function toggleQuizAnswer(el) {
+    // Deprecated for MCQ
+}
+
+function updateQuizScore() {
     var total = document.querySelectorAll('.quiz-item').length;
     document.getElementById('quiz-correct').innerHTML = quizState.correct + ' &#x2705;';
     document.getElementById('quiz-wrong').innerHTML = quizState.wrong + ' &#x274C;';
@@ -137,13 +197,18 @@ function updateQuizScore(items) {
 export function resetQuiz() {
     quizState = { correct: 0, wrong: 0 };
     document.querySelectorAll('.quiz-item').forEach(function (item) {
-        item.classList.remove('open');
-        item.querySelectorAll('.quiz-mark-btn').forEach(function (b) {
-            b.className = 'quiz-mark-btn';
+        item.classList.remove('answered');
+        var buttons = item.querySelectorAll('.quiz-mcq-opt');
+        buttons.forEach(function(b) {
+            b.classList.remove('mcq-correct');
+            b.classList.remove('mcq-wrong');
             b.disabled = false;
         });
-        var toggle = item.querySelector('.quiz-toggle');
-        if (toggle) toggle.innerHTML = '&#x2B;';
+        var feedbackBox = item.querySelector('.quiz-mcq-feedback');
+        if (feedbackBox) {
+            feedbackBox.style.display = 'none';
+            feedbackBox.className = 'quiz-mcq-feedback';
+        }
     });
     updateQuizScore();
 }
@@ -259,10 +324,20 @@ export function renderExercises(exercises) {
         }
 
         globalIndex++;
-        var safeCode = ex.code
-            .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
-            .replace(/"/g, '"');
+        var rawCode = ex.code;
         var lang = prismLang(ex.lang);
+        var highlightedCode = rawCode;
+
+        if (window.Prism && Prism.languages[lang]) {
+            try {
+                highlightedCode = Prism.highlight(rawCode, Prism.languages[lang], lang);
+            } catch (e) {
+                console.warn('Prism highlight failed for exercise:', ex.id, e);
+                highlightedCode = rawCode.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+        } else {
+            highlightedCode = rawCode.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
 
         // Load saved code
         var savedCode = Storage.get('exercise_' + ex.id, null);
@@ -281,10 +356,17 @@ export function renderExercises(exercises) {
         var hints = ex.hints || [];
         var hintCount = hints.length;
 
-        // Build line-numbered code
-        var codeLines = safeCode.split('\n');
+        // Build line-numbered code from the (possibly highlighted) HTML
+        var codeLines = highlightedCode.split('\n');
+        console.log('[DEBUG] Exercise ID:', ex.id, 'Lines count:', codeLines.length);
+        if (codeLines.length === 1) {
+            console.log('[DEBUG] Single line content:', highlightedCode.substring(0, 100));
+        }
         var numberedCode = codeLines.map(function (line, lineIdx) {
-            return '<span class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + line + '</span></span>';
+            return '<div class="ex-line">' +
+                   '<span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span>' +
+                   '<span class="ex-line-code">' + (line || ' ') + '</span>' +
+                   '</div>';
         }).join('');
 
         html += '<div class="exercise-card ' + diffBorderClass + '" data-ex="' + ex.id + '" data-diff="' + (ex.difficulty || 'intermediate') + '" style="--card-index: ' + (globalIndex - 1) + '">' +
@@ -328,7 +410,7 @@ export function renderExercises(exercises) {
             '<span class="ex-solution-label">&#x2705; Solution</span>' +
             '<button class="ex-btn ex-btn-copy" onclick="copySolution(this)">&#x1F4CB; Copy</button>' +
             '</div>' +
-            '<pre class="ex-code-block"><code class="language-' + lang + '">' + numberedCode + '</code></pre>' +
+            '<pre class="ex-code-block"><code>' + numberedCode + '</code></pre>' +
             '</div>' +
 
             // Practice editor
@@ -363,10 +445,8 @@ export function renderExercises(exercises) {
         });
     });
 
-    // Highlight all code blocks
-    document.querySelectorAll('#exercise-list pre code').forEach(function (block) {
-        if (window.Prism) Prism.highlightElement(block);
-    });
+    // Prism auto-highlighting is disabled here because we highlight manually
+    // during line-span generation in renderExercises() to preserve layout.
 
     // Attach smart editor listeners
     document.querySelectorAll('#exercise-list .ex-editor textarea').forEach(function (textarea) {
@@ -444,10 +524,8 @@ export function revealSolution(btn) {
     btn.innerHTML = isOpening ? '&#x1F512; Hide Solution' : '&#x1F50D; Reveal Solution';
 
     if (isOpening) {
-        // Highlight code via Prism
-        sol.querySelectorAll('pre code').forEach(function (b) {
-            if (window.Prism) Prism.highlightElement(b);
-        });
+        // Prism highlighting is already handled during initial render
+        // to preserve the custom line-numbered DOM structure.
         // Auto-scroll to the solution so it's fully visible
         setTimeout(function () {
             sol.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -651,15 +729,24 @@ export function togglePreview(btn) {
                 textarea.removeEventListener('input', _previewUpdater);
                 return;
             }
-            var newCode = textarea.value
-                .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
-                .replace(/"/g, '"');
-            var newLines = newCode.split('\n');
+            var lang = prismLang(btn.closest('.exercise-card').querySelector('.ex-lang').textContent);
+            var rawText = textarea.value;
+            var highlighted = rawText;
+            if (window.Prism && Prism.languages[lang]) {
+                try {
+                    highlighted = Prism.highlight(rawText, Prism.languages[lang], lang);
+                } catch (e) {
+                    highlighted = rawText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                }
+            } else {
+                highlighted = rawText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            var newLines = highlighted.split('\n');
             var newNumbered = newLines.map(function (line, lineIdx) {
-                return '<span class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + line + '</span></span>';
+                return '<div class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + (line || ' ') + '</span></div>';
             }).join('');
             codeBlock.innerHTML = newNumbered;
-            if (window.Prism) Prism.highlightElement(codeBlock);
         });
     } else {
         // Switch back to editor

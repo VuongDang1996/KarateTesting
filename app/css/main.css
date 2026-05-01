@@ -9,6 +9,40 @@
     padding: 0;
 }
 
+/* ─── CODE BLOCK ALIGNMENT FIX ─────────────────────────────────────────────
+   Force code containers to stack lines properly and preserve whitespace    */
+.ex-code-block {
+    display: block !important;
+    white-space: pre !important;
+    font-family: var(--font-mono);
+}
+.ex-code-block code {
+    display: block !important;
+    white-space: pre !important;
+}
+.ex-code-block .ex-line {
+    display: flex !important;
+    align-items: flex-start;
+    min-height: 1.5em;
+    white-space: pre !important;
+    width: 100%;
+}
+.ex-code-block .ex-line-code {
+    flex: 1;
+    white-space: pre !important;
+    padding-left: 0.5em;
+}
+.ex-code-block .ex-line-num {
+    flex-shrink: 0;
+    width: 3.5em;
+    text-align: right;
+    padding-right: 1em;
+    color: #565f89;
+    user-select: none;
+    border-right: 1px solid #2a2c3a;
+    background: rgba(0,0,0,0.1);
+}
+
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -20,6 +54,8 @@
     --bg-code-header: #16161e;
     --bg-inline-code: #eef0f4;
     --bg-nav: #ffffff;
+    --bg-nav-glass: rgba(255, 255, 255, 0.85);
+    --bg-card-glass: rgba(255, 255, 255, 0.6);
 
     --text-primary: #1a1a2e;
     --text-secondary: #4a5568;
@@ -66,6 +102,8 @@
     --bg-code-header: #101014;
     --bg-inline-code: #272a38;
     --bg-nav: #16161e;
+    --bg-nav-glass: rgba(22, 22, 30, 0.85);
+    --bg-card-glass: rgba(26, 27, 38, 0.6);
 
     --text-primary: #c9d1d9;
     --text-secondary: #8b949e;
@@ -177,7 +215,9 @@ body {
     position: sticky;
     top: 0;
     z-index: 200;
-    background: var(--bg-nav);
+    background: var(--bg-nav-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
     height: var(--header-height);
@@ -271,7 +311,9 @@ body {
     display: flex;
     gap: 0;
     border-bottom: 2px solid var(--border);
-    background: var(--bg-nav);
+    background: var(--bg-nav-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     position: sticky;
     top: var(--header-height);
     z-index: 180;
@@ -471,7 +513,9 @@ body {
            SEARCH & FILTER BAR
            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .search-filter-container {
-    background: var(--bg-card);
+    background: var(--bg-card-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 16px;
@@ -1021,14 +1065,18 @@ body {
 }
 
 .quiz-item {
-    background: var(--bg-card);
+    background: var(--bg-card-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
+    margin-bottom: 16px;
     overflow: hidden;
-    transition: box-shadow 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .quiz-item:hover {
+    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
@@ -1211,11 +1259,19 @@ body {
 }
 
 .exercise-card {
-    background: var(--bg-card);
+    background: var(--bg-card-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-sm);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.exercise-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .exercise-card-header {
@@ -2565,4 +2621,104 @@ body {
     background: var(--accent);
     color: #fff;
     border-color: var(--accent);
+}
+
+/* MCQ Quiz Styles */
+.quiz-code {
+    padding: 0 16px;
+    margin-bottom: 16px;
+}
+.quiz-code pre {
+    margin: 0;
+    border-radius: var(--radius-md);
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 12px;
+    font-size: 0.85rem;
+    overflow-x: auto;
+}
+.quiz-mcq-options {
+    padding: 0 16px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.quiz-mcq-opt {
+    display: flex;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+.quiz-mcq-opt:hover:not(:disabled) {
+    background: var(--hover);
+    border-color: var(--accent);
+    transform: translateX(4px);
+}
+.quiz-mcq-letter {
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+.quiz-mcq-text {
+    flex: 1;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+.quiz-mcq-text code {
+    background: rgba(127,127,127,0.1);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: Consolas, monospace;
+    font-size: 0.9em;
+}
+.quiz-mcq-opt.mcq-correct {
+    background: rgba(56, 161, 105, 0.1);
+    border-color: var(--green);
+}
+.quiz-mcq-opt.mcq-correct .quiz-mcq-letter {
+    background: var(--green);
+    color: white;
+}
+.quiz-mcq-opt.mcq-wrong {
+    background: rgba(229, 62, 62, 0.1);
+    border-color: var(--red);
+}
+.quiz-mcq-opt.mcq-wrong .quiz-mcq-letter {
+    background: var(--red);
+    color: white;
+}
+.quiz-mcq-opt:disabled {
+    cursor: default;
+    opacity: 0.8;
+}
+.quiz-mcq-feedback {
+    margin: 0 16px 16px 16px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    animation: fadeIn 0.3s ease-out;
+}
+.feedback-correct {
+    background: rgba(56, 161, 105, 0.05);
+    border-left: 4px solid var(--green);
+}
+.feedback-wrong {
+    background: rgba(229, 62, 62, 0.05);
+    border-left: 4px solid var(--red);
+}
+.quiz-item.answered .quiz-q-text {
+    color: var(--text-muted);
 }
