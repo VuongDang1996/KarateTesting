@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Karate Petstore &#x2014; Interactive Learning Lab</title>
+
+    <!-- CDN dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-java.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body>
+
+    <!-- &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; HEADER &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-brand">
+                <div class="header-logo">K</div>
+                <h1><span>Karate</span> Learning Lab</h1>
+            </div>
+            <div class="header-meta">
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#x1F319;</button>
+                <span class="header-badge">&#x26A1; API Testing Framework</span>
+                <span class="header-status">
+                    <span class="dot" id="statusDot"></span>
+                    <span id="statusText">Loading...</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; DOCUMENT TABS &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; -->
+    <nav class="tab-bar" role="tablist">
+        <div class="tab-bar-inner">
+            <button class="tab-btn active" role="tab" aria-selected="true" data-doc="readme"
+                onclick="switchDoc('readme')">
+                <span class="tab-icon">&#x1F4D6;</span> README.md
+                <span class="tab-badge" id="badge-readme">&#x2026;</span>
+            </button>
+            <button class="tab-btn" role="tab" aria-selected="false" data-doc="overview"
+                onclick="switchDoc('overview')">
+                <span class="tab-icon">&#x1F4CA;</span> business_overview.md
+                <span class="tab-badge" id="badge-overview">&#x2026;</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; MAIN &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; -->
+    <main class="container">
+
+        <!-- &#x2500;&#x2500; README Document Tab &#x2500;&#x2500; -->
+        <section class="doc-content active" id="doc-readme">
+            <div class="loading" id="loading-readme">
+                <div class="spinner"></div>
+                <p>Loading <strong>README.md</strong>&#x2026;</p>
+            </div>
+            <div class="markdown-body" id="content-readme" style="display:none"></div>
+            <div class="error-state" id="error-readme" style="display:none">
+                <div class="error-icon">&#x26A0;&#xFE0F;</div>
+                <div class="error-title">Failed to load README.md</div>
+                <div class="error-detail" id="error-readme-detail">Unknown error</div>
+            </div>
+        </section>
+
+        <!-- &#x2500;&#x2500; Overview Document Tab &#x2500;&#x2500; -->
+        <section class="doc-content" id="doc-overview">
+            <div class="loading" id="loading-overview">
+                <div class="spinner"></div>
+                <p>Loading <strong>business_overview.md</strong>&#x2026;</p>
+            </div>
+            <div class="markdown-body" id="content-overview" style="display:none"></div>
+            <div class="error-state" id="error-overview" style="display:none">
+                <div class="error-icon">&#x26A0;&#xFE0F;</div>
+                <div class="error-title">Failed to load business_overview.md</div>
+                <div class="error-detail" id="error-overview-detail">Unknown error</div>
+            </div>
+        </section>
+
+        <!-- ── Interactive Learning Tab ── -->
+        <section class="doc-content" id="doc-learn">
+            
+            <!-- Learning Progress Dashboard -->
+            <div class="progress-dashboard">
+                <div class="dashboard-header">
+                    <h3 style="margin:0;font-size:1.1rem;">&#x1F3C6; Your Progress</h3>
+                    <div class="dashboard-actions">
+                        <button class="ex-btn ex-btn-secondary" style="padding:4px 10px;font-size:0.75rem;" onclick="exportProgress()">&#x1F4BE; Backup</button>
+                        <button class="ex-btn ex-btn-secondary" style="padding:4px 10px;font-size:0.75rem;" onclick="document.getElementById('importFile').click()">&#x1F4E5; Restore</button>
+                        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importProgress(event)">
+                    </div>
+                </div>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-label">&#x1F3B4; Flashcards Mastered</div>
+                        <div class="stat-value" id="stat-flashcards">0%</div>
+                        <div class="stat-bar"><div class="stat-fill" id="bar-flashcards" style="width:0%"></div></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">&#x1F4DD; Avg Quiz Score</div>
+                        <div class="stat-value" id="stat-quiz">0%</div>
+                        <div class="stat-bar"><div class="stat-fill" id="bar-quiz" style="width:0%"></div></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">&#x1F4BB; Exercises Attempted</div>
+                        <div class="stat-value" id="stat-exercises">0 / 0</div>
+                        <div class="stat-bar"><div class="stat-fill" id="bar-exercises" style="width:0%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Learning mode tabs -->
+            <div class="mode-tabs" role="tablist">
+                <button class="mode-btn active" role="tab" aria-selected="true" data-mode="flashcards"
+                    onclick="switchMode('flashcards')">
+                    &#x1F3B4; Flashcards
+                </button>
+                <button class="mode-btn" role="tab" aria-selected="false" data-mode="quiz" onclick="switchMode('quiz')">
+                    &#x1F4DD; Quiz
+                </button>
+                <button class="mode-btn" role="tab" aria-selected="false" data-mode="coding"
+                    onclick="switchMode('coding')">
+                    &#x1F4BB; Coding Exercises
+                </button>
+            </div>
+
+            <!-- Global Search & Filter Bar -->
+            <div class="search-filter-container">
+                <div class="search-bar">
+                    <span class="search-icon">&#x1F50D;</span>
+                    <input type="text" id="globalSearch" placeholder="Search across all learning materials..." onkeyup="handleSearch()">
+                </div>
+                <div class="filter-chips" id="filterChips">
+                    <!-- Chips will be generated dynamically based on active mode -->
+                </div>
+            </div>
+
+            <!-- &#x2500;&#x2500; FLASHCARDS &#x2500;&#x2500; -->
+            <div class="mode-content active" id="mode-flashcards">
+                <div class="flashcards-header">
+                    <h2><span>Flashcards</span></h2>
+                    <span class="flashcard-counter" id="flashcard-counter">0 cards</span>
+                </div>
+                <div class="loading" id="loading-flashcards" style="display:none">
+                    <div class="spinner"></div>
+                    <p>Generating flashcards&#x2026;</p>
+                </div>
+                <div class="flashcard-grid" id="flashcard-grid"></div>
+            </div>
+
+            <!-- &#x2500;&#x2500; QUIZ &#x2500;&#x2500; -->
+            <div class="mode-content" id="mode-quiz" style="display:none">
+                <div class="quiz-header">
+                    <h2><span>Knowledge Quiz</span></h2>
+                    <div class="quiz-score">
+                        <div class="quiz-score-bar">
+                            <span class="quiz-score-item correct" id="quiz-correct">0 &#x2705;</span>
+                            <span class="quiz-score-item wrong" id="quiz-wrong">0 &#x274C;</span>
+                            <span class="quiz-score-item total" id="quiz-total">0</span>
+                        </div>
+                        <button class="quiz-reset" onclick="resetQuiz()">&#x21BB; Reset</button>
+                    </div>
+                </div>
+                <div class="loading" id="loading-quiz" style="display:none">
+                    <div class="spinner"></div>
+                    <p>Generating quiz&#x2026;</p>
+                </div>
+                <div class="quiz-list" id="quiz-list"></div>
+            </div>
+
+            <!-- &#x2500;&#x2500; CODING EXERCISES &#x2500;&#x2500; -->
+            <div class="mode-content" id="mode-coding" style="display:none">
+                <div class="coding-header">
+                    <h2><span>Coding Exercises</span></h2>
+                </div>
+                <div class="loading" id="loading-coding" style="display:none">
+                    <div class="spinner"></div>
+                    <p>Preparing exercises&#x2026;</p>
+                </div>
+                <div class="exercise-list" id="exercise-list"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; 
+         JAVASCRIPT 
+         &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550; -->
+    <script type="module" src="js/main.js"></script>
+
+</body>
+
+</html>

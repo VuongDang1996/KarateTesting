@@ -174,7 +174,7 @@ The `pom.xml` defines four execution profiles, each wired to a specific runner a
 **Combine profiles with environment overrides:**
 ```bash
 mvn test -Psmoke "-Dkarate.env=staging"
-mvn test -Pregression "-Dkarate.env=qa"
+
 ```
 
 ---
