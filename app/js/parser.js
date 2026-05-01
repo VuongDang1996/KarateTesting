@@ -629,3 +629,4 @@ export function extractExercises(readmeText, overviewText) {
     );
 
     return ex;
+}
