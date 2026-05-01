@@ -29,7 +29,7 @@ RUN mkdir -p /app/artifacts && \
     cp -r target /app/artifacts/target
 
 # ── Stage 2: Slim runtime image ────────────────────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jdk-alpine
 
 # Install Maven (Alpine package ~18 MB)
 RUN apk add --no-cache maven
