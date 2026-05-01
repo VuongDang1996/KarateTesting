@@ -185,8 +185,6 @@ export function renderExercises(exercises) {
             '<p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:16px">' +
             ex.description + '</p>' +
 
-            '<pre><code class="language-' + lang + '">' + safeCode + '</code></pre>' +
-
             '<div class="exercise-actions">' +
             '<button class="ex-btn ex-btn-primary" onclick="revealSolution(this)">&#x1F50D; Reveal Solution</button>' +
             '<button class="ex-btn ex-btn-secondary" onclick="toggleEditor(this)">&#x270F;&#xFE0F; Practice Area</button>' +
