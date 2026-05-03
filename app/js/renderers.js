@@ -418,12 +418,15 @@ export function renderExercises(exercises) {
             '<div class="ex-editor-toolbar">' +
             '<span class="ex-editor-label">&#x270F;&#xFE0F; Practice Area</span>' +
             '<div class="ex-editor-actions">' +
+            '<button class="ex-btn ex-btn-sm ex-btn-primary" onclick="validateExercise(this)" style="background:var(--accent);color:white;border:none;">&#x25B6;&#xFE0F; Run Validation</button>' +
             '<button class="ex-btn ex-btn-sm ex-btn-secondary" onclick="resetExerciseCode(this)">&#x21BA; Reset</button>' +
             '<button class="ex-btn ex-btn-sm ex-btn-secondary" onclick="togglePreview(this)">&#x1F441; Preview</button>' +
             '</div>' +
             '</div>' +
-            '<textarea placeholder="Write your practice code here&#x2026;" spellcheck="false">' + initialCode + '</textarea>' +
+            '<div class="monaco-container" id="monaco-container-' + ex.id + '" data-lang="' + lang + '" style="position: relative; height: 300px; width: 100%; margin-top: 10px; border: 1px solid var(--border-color); border-radius: 4px; overflow:hidden;"></div>' +
+            '<textarea class="hidden-textarea" id="hidden-textarea-' + ex.id + '" style="display:none;">' + initialCode.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>' +
             '<div class="ex-preview" style="display:none"><pre class="ex-code-block"><code class="language-' + lang + '"></code></pre></div>' +
+            '<div class="ex-validation-feedback" style="display:none; margin-top: 10px; padding: 10px; border-radius: 4px; font-size: 0.9rem;"></div>' +
             '<div class="ex-editor-footer">' +
             '<span class="save-status"></span>' +
             '</div>' +
@@ -445,58 +448,69 @@ export function renderExercises(exercises) {
         });
     });
 
-    // Prism auto-highlighting is disabled here because we highlight manually
-    // during line-span generation in renderExercises() to preserve layout.
+    // Initialize Monaco Editors
+    window.monacoEditors = window.monacoEditors || {};
+    if (window.monacoLoaded) {
+        window.monacoLoaded.then(function(monaco) {
+            document.querySelectorAll('.monaco-container').forEach(function(container) {
+                var exId = container.id.replace('monaco-container-', '');
+                var hiddenTa = document.getElementById('hidden-textarea-' + exId);
+                var lang = container.getAttribute('data-lang');
+                
+                // Map custom langs to monaco langs
+                var monacoLang = lang;
+                if (lang === 'java' || lang === 'gherkin') monacoLang = 'java'; // We'll use java syntax for gherkin for now
+                if (lang === 'bash') monacoLang = 'shell';
 
-    // Attach smart editor listeners
-    document.querySelectorAll('#exercise-list .ex-editor textarea').forEach(function (textarea) {
-        var card = textarea.closest('.exercise-card');
-        var exId = card.getAttribute('data-ex');
-        var footer = card.querySelector('.ex-editor-footer .save-status');
+                var editor = monaco.editor.create(container, {
+                    value: hiddenTa.value.replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
+                    language: monacoLang,
+                    theme: Storage.get('theme', 'dark') === 'dark' ? 'vs-dark' : 'vs',
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    roundedSelection: false,
+                    automaticLayout: true
+                });
 
-        // Tab key for indentation
-        textarea.addEventListener('keydown', function (e) {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                var start = this.selectionStart;
-                var end = this.selectionEnd;
-                this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
-                this.selectionStart = this.selectionEnd = start + 2;
-                this.dispatchEvent(new Event('input'));
-            }
+                window.monacoEditors[exId] = editor;
+
+                var card = container.closest('.exercise-card');
+                var footer = card.querySelector('.ex-editor-footer .save-status');
+                
+                var timeout = null;
+                editor.onDidChangeModelContent(function() {
+                    if (footer) footer.textContent = 'Saving...';
+                    var val = editor.getValue();
+                    // Sync with hidden textarea for preview mode
+                    hiddenTa.value = val;
+                    
+                    clearTimeout(timeout);
+                    timeout = setTimeout(function () {
+                        Storage.set('exercise_' + exId, val);
+                        var statusData = Storage.get('exercise_status', {});
+                        if (statusData[exId] !== 'solved') {
+                            statusData[exId] = 'in_progress';
+                            Storage.set('exercise_status', statusData);
+                            var statusEl = card.querySelector('.ex-status');
+                            if (statusEl) {
+                                statusEl.className = 'ex-status ex-status-in_progress';
+                                statusEl.innerHTML = '&#x1F4DD; In Progress';
+                            }
+                            var solvedBtn = card.querySelector('.ex-btn-solved');
+                            var unsolvedBtn = card.querySelector('.ex-btn-unsolved');
+                            if (solvedBtn) solvedBtn.style.display = 'inline-flex';
+                            if (unsolvedBtn) unsolvedBtn.style.display = 'none';
+                        }
+                        if (footer) footer.innerHTML = 'Saved &#x2705;';
+                        if (window.updateDashboard) window.updateDashboard();
+                        setTimeout(function () { if (footer) footer.textContent = ''; }, 2000);
+                    }, 500);
+                });
+            });
         });
-
-        // Auto-save with debouncing
-        var timeout = null;
-        textarea.addEventListener('input', function () {
-            if (footer) footer.textContent = 'Saving...';
-            var val = this.value;
-            clearTimeout(timeout);
-            timeout = setTimeout(function () {
-                Storage.set('exercise_' + exId, val);
-                // Update status to in_progress if not solved
-                var statusData = Storage.get('exercise_status', {});
-                if (statusData[exId] !== 'solved') {
-                    statusData[exId] = 'in_progress';
-                    Storage.set('exercise_status', statusData);
-                    // Update status badge if visible
-                    var statusEl = card.querySelector('.ex-status');
-                    if (statusEl) {
-                        statusEl.className = 'ex-status ex-status-in_progress';
-                        statusEl.innerHTML = '&#x1F4DD; In Progress';
-                    }
-                    // Show Mark Solved, hide Mark Unsolved
-                    var solvedBtn = card.querySelector('.ex-btn-solved');
-                    var unsolvedBtn = card.querySelector('.ex-btn-unsolved');
-                    if (solvedBtn) solvedBtn.style.display = 'inline-flex';
-                    if (unsolvedBtn) unsolvedBtn.style.display = 'none';
-                }
-                if (footer) footer.innerHTML = 'Saved &#x2705;';
-                if (window.updateDashboard) window.updateDashboard();
-                setTimeout(function () { if (footer) footer.textContent = ''; }, 2000);
-            }, 500);
-        });
-    });
+    }
 }
 
 export function revealSolution(btn) {
@@ -535,13 +549,22 @@ export function revealSolution(btn) {
 
 export function toggleEditor(btn) {
     var card = btn.closest('.exercise-card');
+    var exId = card.getAttribute('data-ex');
     var editor = card.querySelector('.ex-editor');
     var isHidden = editor.style.display === 'none' || !editor.style.display;
     editor.style.display = isHidden ? 'block' : 'none';
     btn.innerHTML = isHidden ? '&#x1F4C1; Hide Practice Area' : '&#x270F;&#xFE0F; Practice Area';
     if (isHidden) {
-        var ta = editor.querySelector('textarea');
-        setTimeout(function () { ta.focus(); }, 100);
+        if (window.monacoEditors && window.monacoEditors[exId]) {
+            // Need to call layout when a hidden monaco editor becomes visible
+            setTimeout(function() {
+                window.monacoEditors[exId].layout();
+                window.monacoEditors[exId].focus();
+            }, 50);
+        } else {
+            var ta = editor.querySelector('textarea.hidden-textarea');
+            if (ta) setTimeout(function () { ta.focus(); }, 100);
+        }
     }
 }
 
@@ -600,15 +623,24 @@ export function resetExerciseCode(btn) {
 
     var card = btn.closest('.exercise-card');
     var exId = card.getAttribute('data-ex');
-    var textarea = card.querySelector('.ex-editor textarea');
+    var hiddenTa = document.getElementById('hidden-textarea-' + exId);
 
     // Find the original exercise to get setup code
     if (window.AppData && window.AppData.exercises) {
         var ex = window.AppData.exercises.find(function (e) { return e.id == exId; });
         if (ex) {
-            textarea.value = ex.setup || '';
-            Storage.set('exercise_' + exId, textarea.value);
+            var setupCode = ex.setup || '';
+            
+            // Update Monaco Editor if available
+            if (window.monacoEditors && window.monacoEditors[exId]) {
+                window.monacoEditors[exId].setValue(setupCode);
+            }
+            if (hiddenTa) hiddenTa.value = setupCode;
+            
+            Storage.set('exercise_' + exId, setupCode);
             var footer = card.querySelector('.ex-editor-footer .save-status');
+            var feedback = card.querySelector('.ex-validation-feedback');
+            if (feedback) feedback.style.display = 'none';
             if (footer) footer.innerHTML = 'Reset &#x2705;';
             setTimeout(function () { if (footer) footer.textContent = ''; }, 2000);
         }
@@ -698,13 +730,17 @@ export function cycleHint(btn) {
 export function togglePreview(btn) {
     var card = btn.closest('.exercise-card');
     var editor = card.querySelector('.ex-editor');
-    var textarea = editor.querySelector('textarea');
+    var monacoContainer = editor.querySelector('.monaco-container');
+    var hiddenTa = document.getElementById('hidden-textarea-' + card.getAttribute('data-ex'));
     var previewArea = editor.querySelector('.ex-preview');
     var isHidden = previewArea.style.display === 'none' || !previewArea.style.display;
 
     if (isHidden) {
         // Render preview
-        var code = textarea.value;
+        var code = window.monacoEditors && window.monacoEditors[card.getAttribute('data-ex')] 
+            ? window.monacoEditors[card.getAttribute('data-ex')].getValue() 
+            : hiddenTa.value;
+            
         var codeBlock = previewArea.querySelector('pre code');
         var safeCode = code
             .replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
@@ -717,43 +753,85 @@ export function togglePreview(btn) {
         codeBlock.innerHTML = numbered;
 
         previewArea.style.display = 'block';
-        textarea.style.display = 'none';
+        monacoContainer.style.display = 'none';
         btn.innerHTML = '&#x270F;&#xFE0F; Edit';
 
         if (window.Prism) Prism.highlightElement(codeBlock);
 
-        // Auto-refresh preview on input
-        textarea._previewActive = true;
-        textarea.addEventListener('input', function _previewUpdater() {
-            if (!textarea._previewActive) {
-                textarea.removeEventListener('input', _previewUpdater);
-                return;
-            }
-            var lang = prismLang(btn.closest('.exercise-card').querySelector('.ex-lang').textContent);
-            var rawText = textarea.value;
-            var highlighted = rawText;
-            if (window.Prism && Prism.languages[lang]) {
-                try {
-                    highlighted = Prism.highlight(rawText, Prism.languages[lang], lang);
-                } catch (e) {
-                    highlighted = rawText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                }
-            } else {
-                highlighted = rawText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            }
-
-            var newLines = highlighted.split('\n');
-            var newNumbered = newLines.map(function (line, lineIdx) {
-                return '<div class="ex-line"><span class="ex-line-num" data-n="' + (lineIdx + 1) + '"></span><span class="ex-line-code">' + (line || ' ') + '</span></div>';
-            }).join('');
-            codeBlock.innerHTML = newNumbered;
-        });
     } else {
         // Switch back to editor
         previewArea.style.display = 'none';
-        textarea.style.display = '';
+        monacoContainer.style.display = 'block';
         btn.innerHTML = '&#x1F441; Preview';
-        textarea._previewActive = false;
+    }
+}
+
+// ─── LIVE VALIDATION SIMULATION ──────────────────────────────────
+
+export function validateExercise(btn) {
+    var card = btn.closest('.exercise-card');
+    var exId = card.getAttribute('data-ex');
+    var feedbackEl = card.querySelector('.ex-validation-feedback');
+    
+    var code = window.monacoEditors && window.monacoEditors[exId] 
+        ? window.monacoEditors[exId].getValue() 
+        : document.getElementById('hidden-textarea-' + exId).value;
+    
+    // Find the original exercise to get expected solution snippet
+    if (window.AppData && window.AppData.exercises) {
+        var ex = window.AppData.exercises.find(function (e) { return e.id == exId; });
+        if (ex) {
+            // This is a basic simulated validation.
+            // We check if their code contains key parts of the expected solution.
+            var solutionCode = ex.code || '';
+            // Very naive check: just see if some keywords match based on the type of exercise
+            
+            var errors = [];
+            var codeLower = code.toLowerCase();
+            
+            // Basic Gherkin checks
+            if (ex.lang === 'gherkin') {
+                if (solutionCode.includes('Given ') && !code.includes('Given ')) errors.push("Missing 'Given' step.");
+                if (solutionCode.includes('When method ') && !code.includes('When method ')) errors.push("Missing 'When method' step.");
+                if (solutionCode.includes('Then status ') && !code.includes('Then status ')) errors.push("Missing 'Then status' assertion.");
+                if (solutionCode.includes('match ') && !code.includes('match ')) errors.push("Missing 'match' assertion.");
+            } else if (ex.lang === 'javascript' || ex.lang === 'js') {
+                if (solutionCode.includes('function') && !code.includes('function') && !code.includes('=>')) errors.push("Missing function definition.");
+            } else if (ex.lang === 'json') {
+                try {
+                    JSON.parse(code);
+                } catch(e) {
+                    errors.push("Invalid JSON syntax: " + e.message);
+                }
+            }
+            
+            // Check for exact lines if it's very strict, but usually we just do a heuristic
+            // If the solution has `status 200`, make sure they have it
+            if (solutionCode.includes('status 200') && !code.includes('status 200')) errors.push("Expected a 200 status check.");
+            if (solutionCode.includes('status 404') && !code.includes('status 404')) errors.push("Expected a 404 status check.");
+            
+            feedbackEl.style.display = 'block';
+            if (errors.length > 0) {
+                feedbackEl.style.backgroundColor = 'rgba(255, 77, 79, 0.1)';
+                feedbackEl.style.border = '1px solid var(--red)';
+                feedbackEl.style.color = 'var(--red)';
+                feedbackEl.innerHTML = '<strong>Validation Failed:</strong><ul>' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+            } else if (code.trim().length < 10) {
+                feedbackEl.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
+                feedbackEl.style.border = '1px solid var(--amber)';
+                feedbackEl.style.color = 'var(--amber)';
+                feedbackEl.innerHTML = '<strong>Code too short:</strong> Please write a complete solution.';
+            } else {
+                feedbackEl.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
+                feedbackEl.style.border = '1px solid var(--green)';
+                feedbackEl.style.color = 'var(--green)';
+                feedbackEl.innerHTML = '<strong>Validation Passed!</strong> Your logic looks solid. &#x1F389;';
+                
+                // Auto mark solved
+                var solvedBtn = card.querySelector('.ex-btn-solved');
+                if (solvedBtn) markExerciseSolved(solvedBtn);
+            }
+        }
     }
 }
 

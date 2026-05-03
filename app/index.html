@@ -4,7 +4,13 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Karate Petstore &#x2014; Interactive Learning Lab</title>
+    <title>Karate Petstore — Interactive Learning Lab</title>
+    <script>
+        // Force trailing slash for correct relative path resolution
+        if (window.location.pathname.endsWith('/app')) {
+            window.location.pathname += '/';
+        }
+    </script>
 
     <!-- CDN dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -15,6 +21,18 @@
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-yaml.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+
+    <!-- Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script>
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+        // We will initialize it in renderers.js, but need to load it globally
+        window.monacoLoaded = new Promise(resolve => {
+            require(['vs/editor/editor.main'], function() {
+                resolve(window.monaco);
+            });
+        });
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -1,7 +1,7 @@
 import { Storage } from './storage.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { extractFlashcards, extractQuiz, extractExercises } from './parser.js';
-import { renderFlashcards, renderQuiz, renderExercises, toggleQuizAnswer, markQuiz, markQuizMCQ, markFlashcard, revealSolution, toggleEditor, markExerciseSolved, markExerciseUnsolved, resetExerciseCode, copySolution, cycleHint, togglePreview, toggleSection, toggleBookmark, scrollToExercise } from './renderers.js';
+import { renderFlashcards, renderQuiz, renderExercises, toggleQuizAnswer, markQuiz, markQuizMCQ, markFlashcard, revealSolution, toggleEditor, markExerciseSolved, markExerciseUnsolved, resetExerciseCode, copySolution, cycleHint, togglePreview, toggleSection, toggleBookmark, scrollToExercise, validateExercise } from './renderers.js';
 import { generateToC } from './toc.js';
 
 export var AppData = { flashcards: [], quizItems: [], exercises: [] };
@@ -439,3 +439,4 @@ window.scrollToExercise = scrollToExercise;
 window.updateDashboard = updateDashboard;
 window.exportProgress = exportProgress;
 window.importProgress = importProgress;
+window.validateExercise = validateExercise;
